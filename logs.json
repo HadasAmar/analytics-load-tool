@@ -1,0 +1,53 @@
+[
+  {
+    "timestamp": "2022-09-19T07:31:05Z",
+    "ip": "10.10.67.38",
+    "query": {
+      "queryType": "groupBy",
+      "dimensions": [
+        {"dimension": "app_id", "outputName": "app_123", "outputType": "STRING"},
+        {"dimension": "campaign_id", "outputName": "camp_100", "outputType": "STRING"},
+        {"dimension": "media_source", "outputName": "source_0", "outputType": "STRING"},
+        {"dimension": "ad_id", "outputName": "ad_0", "outputType": "STRING"}
+      ],
+      "aggregations": [
+        {"type": "count", "name": "clicks", "fieldName": "clicks"},
+        {"type": "count", "name": "installs", "fieldName": "installs"}
+      ]
+    }
+  },
+  {
+    "timestamp": "2022-09-19T07:31:06Z",
+    "ip": "10.10.67.39",
+    "query": {
+      "queryType": "groupBy",
+      "dimensions": [
+        {"dimension": "app_id", "outputName": "app_124", "outputType": "STRING"},
+        {"dimension": "campaign_id", "outputName": "camp_101", "outputType": "STRING"},
+        {"dimension": "media_source", "outputName": "source_1", "outputType": "STRING"},
+        {"dimension": "ad_id", "outputName": "ad_1", "outputType": "STRING"}
+      ],
+      "aggregations": [
+        {"type": "count", "name": "clicks", "fieldName": "clicks"},
+        {"type": "count", "name": "installs", "fieldName": "installs"}
+      ]
+    }
+  },
+  {
+    "timestamp": "2022-09-19T07:31:07Z",
+    "ip": "10.10.67.40",
+    "query": {
+      "queryType": "groupBy",
+      "dimensions": [
+        {"dimension": "app_id", "outputName": "app_125", "outputType": "STRING"},
+        {"dimension": "campaign_id", "outputName": "camp_102", "outputType": "STRING"},
+        {"dimension": "media_source", "outputName": "source_2", "outputType": "STRING"},
+        {"dimension": "ad_id", "outputName": "ad_2", "outputType": "STRING"}
+      ],
+      "aggregations": [
+        {"type": "count", "name": "clicks", "fieldName": "clicks"},
+        {"type": "count", "name": "installs", "fieldName": "installs"}
+      ]
+    }
+  }
+]

@@ -1,14 +1,14 @@
 package Parser
 
 import (
-	"time"
 	"strconv"
+	"time"
+
 	"github.com/HadasAmar/analytics-load-tool.git/Model"
 )
 
-
-func FromLogEntry(entry Model.LogEntry) Model.StandardLogRecord {
-	return Model.StandardLogRecord{
+func FromLogEntry(entry Model.LogEntry) Model.LogEntry {
+	return Model.LogEntry{
 		CampaignID:          entry.CampaignID,
 		Partner:             entry.Partner,
 		AppID:               entry.AppID,
@@ -35,9 +35,8 @@ func FromLogEntry(entry Model.LogEntry) Model.StandardLogRecord {
 	}
 }
 
-
-func FromCSVRow(row map[string]string) Model.StandardLogRecord {
-	return Model.StandardLogRecord{
+func FromCSVRow(row map[string]string) Model.LogEntry {
+	return Model.LogEntry{
 		CampaignID:          row["campaign_id"],
 		Partner:             row["partner"],
 		AppID:               row["app_id"],

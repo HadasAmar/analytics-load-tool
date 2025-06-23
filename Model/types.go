@@ -46,30 +46,3 @@ type LogEntry struct {
 	LogTime              time.Time
 	IP                   string
 }
-
-type StandardLogRecord struct {
-	CampaignID           string
-	Partner              string
-	AppID                string
-	UnmaskedMediaSource  string
-	MediaSource          string
-	AttributionType      string
-	Campaign             string
-	Source               string
-	AdID                 string
-	AdsetID              string
-	AdsetName            string
-	SiteID               string
-	Ad                   string
-	LtvCountry           string
-	Installs             int
-	Impressions          int
-	Clicks               int
-	Loyals               int
-	OrganicInstalls      int
-	OrganicImpressions   int
-	OrganicClicks        int
-	OrganicLoyals        int
-	LogTime              time.Time
-}
-

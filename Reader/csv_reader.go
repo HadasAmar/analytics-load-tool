@@ -4,6 +4,7 @@ import (
 	"encoding/csv"
 	"fmt"
 	"os"
+	"github.com/HadasAmar/analytics-load-tool.git/Parser"
 )
 
 func ProcessCSVFile(filename string) error {
@@ -37,7 +38,8 @@ func ProcessCSVFile(filename string) error {
 			row[headers[j]] = value
 		}
 
-		fmt.Printf("שורה %d: %+v\n", i+2, row)
+		converted := Parser.FromCSVRow(row)
+		fmt.Printf("🚀 שורה %d אחרי המרה: %+v\n", i+2, converted)
 	}
 
 	return nil

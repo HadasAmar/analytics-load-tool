@@ -1,4 +1,5 @@
-package main
+package Reader
+
 import (
     "encoding/json"
     "fmt"
@@ -7,7 +8,7 @@ import (
 )
 
 
-func processJSONFile(filename string) {
+func ProcessJSONFile(filename string) {
     data, err := os.ReadFile(filename)
     if err != nil {
         fmt.Println("שגיאה בקריאת קובץ:", err)

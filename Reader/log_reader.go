@@ -1,4 +1,4 @@
-package main
+package Reader
 
 import (
     "bufio"
@@ -72,7 +72,7 @@ func getAgg(aggs []AggregationSpec, name string) int {
     return 0
 }
 
-func processLogFile(filename string) {
+func ProcessLogFile(filename string) {
     file, err := os.Open(filename)
     if err != nil {
         fmt.Println("שגיאה בפתיחת קובץ:", err)

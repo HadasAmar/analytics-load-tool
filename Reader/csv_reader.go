@@ -1,4 +1,4 @@
-package main
+package Reader
 
 import (
 	"encoding/csv"
@@ -6,9 +6,10 @@ import (
 	"os"
 )
 
-func processCSVFile(filename string) error {
+func ProcessCSVFile(filename string) error {
 	file, err := os.Open(filename)
 	if err != nil {
+		fmt.Println("שגיאה בפתיחת הקובץ:", err)
 		return err
 	}
 	defer file.Close()

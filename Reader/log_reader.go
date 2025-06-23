@@ -64,36 +64,9 @@ func ProcessLogFile(filename string) {
 			continue
 		}
 
-		entry := Model.LogEntry{
-			CampaignID:          getDim(query.Dimensions, "campaign_id"),
-			Partner:             getDim(query.Dimensions, "partner"),
-			AppID:               getDim(query.Dimensions, "app_id"),
-			UnmaskedMediaSource: getDim(query.Dimensions, "unmasked_media_source"),
-			MediaSource:         getDim(query.Dimensions, "media_source"),
-			AttributionType:     getDim(query.Dimensions, "attribution_type"),
-			Campaign:            getDim(query.Dimensions, "campaign"),
-			Source:              getDim(query.Dimensions, "source"),
-			AdID:                getDim(query.Dimensions, "ad_id"),
-			AdsetID:             getDim(query.Dimensions, "adset_id"),
-			AdsetName:           getDim(query.Dimensions, "adset_name"),
-			SiteID:              getDim(query.Dimensions, "site_id"),
-			Ad:                  getDim(query.Dimensions, "ad"),
-			LtvCountry:          getDim(query.Dimensions, "ltv_country"),
-			Installs:            getAgg(query.Aggregations, "installs"),
-			Impressions:         getAgg(query.Aggregations, "impressions"),
-			Clicks:              getAgg(query.Aggregations, "clicks"),
-			Loyals:              getAgg(query.Aggregations, "loyals"),
-			OrganicInstalls:     getAgg(query.Aggregations, "organic_installs"),
-			OrganicImpressions:  getAgg(query.Aggregations, "organic_impressions"),
-			OrganicClicks:       getAgg(query.Aggregations, "organic_clicks"),
-			OrganicLoyals:       getAgg(query.Aggregations, "organic_loyals"),
-			LogTime:             timestamp,
-			IP:                  ip,
-		}
+		entry := Parser.FromQueryRecord(timestamp, ip, query)
 
-		converted := Parser.FromLogEntry(entry)
-
-		jsonBytes, err := json.Marshal(converted)
+		jsonBytes, err := json.Marshal(entry)
 		if err != nil {
 			fmt.Printf("שגיאת המרה ל-JSON בשורה %d: %v\n", lineNumber, err)
 			continue

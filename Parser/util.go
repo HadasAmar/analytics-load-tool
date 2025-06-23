@@ -1,8 +1,8 @@
-package Reader
+package Parser
 
 import "github.com/HadasAmar/analytics-load-tool.git/Model"
 
-func getDim(dims []Model.DimensionSpec, name string) string {
+func GetDim(dims []Model.DimensionSpec, name string) string {
 	for _, d := range dims {
 		if d.Dimension == name {
 			return d.OutputName
@@ -11,7 +11,7 @@ func getDim(dims []Model.DimensionSpec, name string) string {
 	return ""
 }
 
-func getAgg(aggs []Model.AggregationSpec, name string) int {
+func GetAgg(aggs []Model.AggregationSpec, name string) int {
 	for _, a := range aggs {
 		if a.Name == name {
 			return 1

@@ -18,9 +18,9 @@ func ProcessJSONFile(filename string) {
 	}
 
 	var records []struct {
-		Timestamp string           `json:"timestamp"`
-		IP        string           `json:"ip"`
-		Query     Model.QueryData  `json:"query"`
+		Timestamp string          `json:"timestamp"`
+		IP        string          `json:"ip"`
+		Query     Model.QueryData `json:"query"`
 	}
 
 	err = json.Unmarshal(data, &records)
@@ -44,37 +44,9 @@ func ProcessJSONFile(filename string) {
 			continue
 		}
 
-		entry := Model.LogEntry{
-			CampaignID:          getDim(rec.Query.Dimensions, "campaign_id"),
-			Partner:             getDim(rec.Query.Dimensions, "partner"),
-			AppID:               getDim(rec.Query.Dimensions, "app_id"),
-			UnmaskedMediaSource: getDim(rec.Query.Dimensions, "unmasked_media_source"),
-			MediaSource:         getDim(rec.Query.Dimensions, "media_source"),
-			AttributionType:     getDim(rec.Query.Dimensions, "attribution_type"),
-			Campaign:            getDim(rec.Query.Dimensions, "campaign"),
-			Source:              getDim(rec.Query.Dimensions, "source"),
-			AdID:                getDim(rec.Query.Dimensions, "ad_id"),
-			AdsetID:             getDim(rec.Query.Dimensions, "adset_id"),
-			AdsetName:           getDim(rec.Query.Dimensions, "adset_name"),
-			SiteID:              getDim(rec.Query.Dimensions, "site_id"),
-			Ad:                  getDim(rec.Query.Dimensions, "ad"),
-			LtvCountry:          getDim(rec.Query.Dimensions, "ltv_country"),
-			Installs:            getAgg(rec.Query.Aggregations, "installs"),
-			Impressions:         getAgg(rec.Query.Aggregations, "impressions"),
-			Clicks:              getAgg(rec.Query.Aggregations, "clicks"),
-			Loyals:              getAgg(rec.Query.Aggregations, "loyals"),
-			OrganicInstalls:     getAgg(rec.Query.Aggregations, "organic_installs"),
-			OrganicImpressions:  getAgg(rec.Query.Aggregations, "organic_impressions"),
-			OrganicClicks:       getAgg(rec.Query.Aggregations, "organic_clicks"),
-			OrganicLoyals:       getAgg(rec.Query.Aggregations, "organic_loyals"),
-			LogTime:             timestamp,
-			IP:                  rec.IP,
-		}
+		entry := Parser.FromQueryRecord(timestamp, rec.IP, rec.Query)
 
-		converted := Parser.FromLogEntry(entry)
-
-		// כתיבה לשורת JSONL
-		jsonBytes, err := json.Marshal(converted)
+		jsonBytes, err := json.Marshal(entry)
 		if err != nil {
 			fmt.Printf("שגיאת המרה ל-JSON בשורה %d: %v\n", i+1, err)
 			continue

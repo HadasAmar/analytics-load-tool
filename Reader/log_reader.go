@@ -12,7 +12,6 @@ import (
 	"github.com/HadasAmar/analytics-load-tool.git/Parser"
 )
 
-
 func ProcessLogFile(filename string) {
 	file, err := os.Open(filename)
 	if err != nil {
@@ -21,14 +20,24 @@ func ProcessLogFile(filename string) {
 	}
 	defer file.Close()
 
+	// פתיחת קובץ פלט JSONL (לדרוס אם קיים)
+	outputFile, err := os.OpenFile("output.jsonl", os.O_CREATE|os.O_WRONLY|os.O_TRUNC, 0644)
+	if err != nil {
+		fmt.Println("שגיאה בפתיחת קובץ הפלט:", err)
+		return
+	}
+	defer outputFile.Close()
+
 	scanner := bufio.NewScanner(file)
 	lineNumber := 0
+
 	for scanner.Scan() {
 		line := scanner.Text()
 		lineNumber++
 
-		parts := strings.SplitN(line, "\t", 3)
-		if len(parts) != 3 {
+		parts := strings.SplitN(line, "\t", 4)
+
+		if len(parts) < 3 {
 			fmt.Printf("שורה %d לא בפורמט תקין\n", lineNumber)
 			continue
 		}
@@ -49,7 +58,11 @@ func ProcessLogFile(filename string) {
 			continue
 		}
 
-		timestamp, _ := time.Parse(time.RFC3339, timestampStr)
+		timestamp, err := time.Parse(time.RFC3339, timestampStr)
+		if err != nil {
+			fmt.Printf("שגיאת זמן בשורה %d: %v\n", lineNumber, err)
+			continue
+		}
 
 		entry := Model.LogEntry{
 			CampaignID:          getDim(query.Dimensions, "campaign_id"),
@@ -79,7 +92,17 @@ func ProcessLogFile(filename string) {
 		}
 
 		converted := Parser.FromLogEntry(entry)
-		fmt.Printf("🚀 LOG => %+v\n", converted)
+
+		jsonBytes, err := json.Marshal(converted)
+		if err != nil {
+			fmt.Printf("שגיאת המרה ל-JSON בשורה %d: %v\n", lineNumber, err)
+			continue
+		}
+
+		_, err = outputFile.WriteString(string(jsonBytes) + "\n")
+		if err != nil {
+			fmt.Printf("שגיאה בכתיבת שורה %d לקובץ: %v\n", lineNumber, err)
+		}
 	}
 
 	if err := scanner.Err(); err != nil {

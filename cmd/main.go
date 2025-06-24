@@ -1,15 +1,18 @@
-// main.go
 package main
 
 import (
+	"context"
 	"fmt"
+	"github.com/HadasAmar/analytics-load-tool/Model"
+	"github.com/HadasAmar/analytics-load-tool/Output"
+	"github.com/HadasAmar/analytics-load-tool/Parser"
+	"github.com/HadasAmar/analytics-load-tool/Reader"
+	"github.com/HadasAmar/analytics-load-tool/Simulator"
+	"github.com/HadasAmar/analytics-load-tool/Writer"
+	"log"
 	"os"
 	"path/filepath"
-	"github.com/HadasAmar/analytics-load-tool.git/Model"
-	"github.com/HadasAmar/analytics-load-tool.git/Output"
-	"github.com/HadasAmar/analytics-load-tool.git/Parser"
-	"github.com/HadasAmar/analytics-load-tool.git/Reader"
-	"github.com/HadasAmar/analytics-load-tool.git/Simulator"
+	"time"
 )
 
 func main() {
@@ -26,14 +29,16 @@ func main() {
 	}
 
 	entries := []Model.LogEntry{}
+	ext := filepath.Ext(filename)
 
-	if filepath.Ext(filename) == ".csv" {
+	if ext == ".csv" {
 		for _, raw := range rawRecords {
-			entry := Parser.ParseCSVRaw(raw) // במקום ParseRecord
-			entries = append(entries, *entry)
+			entry := Parser.ParseCSVRaw(raw)
+			if entry != nil {
+				entries = append(entries, *entry)
+			}
 		}
 	} else {
-		fmt.Println("Parsing as JSON file")
 		for _, raw := range rawRecords {
 			entry := Parser.ParseRecord(raw)
 			if entry != nil {
@@ -42,8 +47,55 @@ func main() {
 		}
 	}
 
-	sim := Simulator.New(10.0) // speedup factor
+	// שלב סימולציה
+	sim := Simulator.New(10.0)
+
+	// הגדרת יעד
+	ctx := context.Background()
+	w, err := Writer.NewBQWriter(ctx,
+		"credentials.json",
+		"platform-hackaton-2025",
+		"My_Try",
+		"loadtool_logs",
+	)
+	if err != nil {
+		log.Fatalf("❌ שגיאה בהגדרת יעד BQ: %v", err)
+	}
+
+	// דוגמת כתיבה ל-BQ: רק רשומה אחת קבועה
+	record := &Writer.LogRecord{
+		CampaignID:          "abc123",
+		AppID:               "com.kuku",
+		Partner:             "partnerA",
+		MediaSource:         "ms",
+		UnmaskedMediaSource: "ms",
+		AttributionType:     "install",
+		Campaign:            "camp_test",
+		Source:              "sourceA",
+		AdID:                "ad1",
+		AdsetID:             "adset1",
+		AdsetName:           "set name",
+		SiteID:              "site1",
+		Ad:                  "adtext",
+		LtvCountry:          "US",
+		Installs:            15,
+		Impressions:         100,
+		Clicks:              30,
+		Loyals:              3,
+		OrganicInstalls:     1,
+		OrganicImpressions:  5,
+		OrganicClicks:       2,
+		OrganicLoyals:       1,
+		LogTime:             time.Now(),
+	}
+
+	// כתיבה לפלט jsonl
 	for e := range sim.Stream(entries) {
 		Output.WriteJSONL("output.jsonl", e)
+	}
+
+	// שליחה ל-BQ (רק הרשומה הבודדת)
+	if err := w.Write([]*Writer.LogRecord{record}); err != nil {
+		log.Fatalf("❌ שגיאה בכתיבה ל-BQ: %v", err)
 	}
 }

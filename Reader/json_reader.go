@@ -3,7 +3,7 @@ package Reader
 import (
 	"encoding/json"
 	"os"
-	"github.com/HadasAmar/analytics-load-tool.git/Model"
+	"github.com/HadasAmar/analytics-load-tool/Model"
 )
 
 func ReadJSONFile(filename string) ([]RawRecord, error) {

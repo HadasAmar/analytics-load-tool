@@ -5,8 +5,8 @@ import (
 	"fmt"
 	"time"
 
-	"github.com/HadasAmar/analytics-load-tool.git/Model"
-	"github.com/HadasAmar/analytics-load-tool.git/Reader"
+	"github.com/HadasAmar/analytics-load-tool/Model"
+	"github.com/HadasAmar/analytics-load-tool/Reader"
 )
 
 type LogEntry = Model.LogEntry

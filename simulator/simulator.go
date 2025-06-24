@@ -3,7 +3,7 @@ package Simulator
 import (
 	"time"
 
-	"github.com/HadasAmar/analytics-load-tool.git/Model"
+	"github.com/HadasAmar/analytics-load-tool/Model"
 )
 
 type Simulator struct {

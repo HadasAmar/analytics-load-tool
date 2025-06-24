@@ -6,8 +6,8 @@ import (
 	"strconv"
 	"time"
 
-	"github.com/HadasAmar/analytics-load-tool.git/Model"
-	"github.com/HadasAmar/analytics-load-tool.git/Reader"
+	"github.com/HadasAmar/analytics-load-tool/Model"
+	"github.com/HadasAmar/analytics-load-tool/Reader"
 )
 
 func FromQueryRecord(timestamp time.Time, ip string, query Model.QueryData) Model.LogEntry {

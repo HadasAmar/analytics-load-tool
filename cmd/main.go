@@ -54,7 +54,7 @@ func main() {
 	// הגדרת יעד
 	ctx := context.Background()
 	w, err := Writer.NewBQWriter(ctx,
-		"credentials.json",
+		"../credentials.json",
 		"platform-hackaton-2025",
 		"My_Try",
 		"loadtool_logs",

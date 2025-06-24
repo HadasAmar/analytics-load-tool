@@ -29,21 +29,21 @@ func ParseCSVRaw(r Reader.RawRecord) *Model.LogEntry {
 		SiteID:              row["site_id"],
 		Ad:                  row["ad"],
 		LtvCountry:          row["ltv_country"],
-		Installs:            parseInt(row["installs"]),
-		Impressions:         parseInt(row["impressions"]),
-		Clicks:              parseInt(row["clicks"]),
-		Loyals:              parseInt(row["loyals"]),
-		OrganicInstalls:     parseInt(row["organic_installs"]),
-		OrganicImpressions:  parseInt(row["organic_impressions"]),
-		OrganicClicks:       parseInt(row["organic_clicks"]),
-		OrganicLoyals:       parseInt(row["organic_loyals"]),
-		LogTime:             parseTime(row["log_time"]),
+		Installs:            ParseInt(row["installs"]),
+		Impressions:         ParseInt(row["impressions"]),
+		Clicks:              ParseInt(row["clicks"]),
+		Loyals:              ParseInt(row["loyals"]),
+		OrganicInstalls:     ParseInt(row["organic_installs"]),
+		OrganicImpressions:  ParseInt(row["organic_impressions"]),
+		OrganicClicks:       ParseInt(row["organic_clicks"]),
+		OrganicLoyals:       ParseInt(row["organic_loyals"]),
+		LogTime:             ParseTime(row["log_time"]),
 		IP:                  row["ip"],
 	}
 	return &entry
 }
 
-func parseInt(s string) int {
+func ParseInt(s string) int {
 	i, err := strconv.Atoi(s)
 	if err != nil {
 		return 0
@@ -51,7 +51,7 @@ func parseInt(s string) int {
 	return i
 }
 
-func parseTime(s string) time.Time {
+func ParseTime(s string) time.Time {
 	t, err := time.Parse(time.RFC3339, s)
 	if err != nil {
 		return time.Time{}

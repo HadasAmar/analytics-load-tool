@@ -15,8 +15,8 @@ type AggregationSpec struct {
 }
 
 type QueryData struct {
-	QueryType    string           `json:"queryType"`
-	Dimensions   []DimensionSpec  `json:"dimensions"`
+	QueryType    string            `json:"queryType"`
+	Dimensions   []DimensionSpec   `json:"dimensions"`
 	Aggregations []AggregationSpec `json:"aggregations"`
 }
 

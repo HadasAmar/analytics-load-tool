@@ -1,13 +1,17 @@
 package Parser
 
 import (
+	"encoding/json"
+	"fmt"
 	"strconv"
 	"time"
 
 	"github.com/HadasAmar/analytics-load-tool.git/Model"
+	"github.com/HadasAmar/analytics-load-tool.git/Reader"
 )
 
 func FromQueryRecord(timestamp time.Time, ip string, query Model.QueryData) Model.LogEntry {
+	fmt.Println("Parsing query record:", query)
 	return Model.LogEntry{
 		CampaignID:          GetDim(query.Dimensions, "campaign_id"),
 		Partner:             GetDim(query.Dimensions, "partner"),
@@ -36,36 +40,12 @@ func FromQueryRecord(timestamp time.Time, ip string, query Model.QueryData) Mode
 	}
 }
 
-// func FromLogEntry(entry Model.LogEntry) Model.LogEntry {
-// 	return Model.LogEntry{
-// 		CampaignID:          entry.CampaignID,
-// 		Partner:             entry.Partner,
-// 		AppID:               entry.AppID,
-// 		UnmaskedMediaSource: entry.UnmaskedMediaSource,
-// 		MediaSource:         entry.MediaSource,
-// 		AttributionType:     entry.AttributionType,
-// 		Campaign:            entry.Campaign,
-// 		Source:              entry.Source,
-// 		AdID:                entry.AdID,
-// 		AdsetID:             entry.AdsetID,
-// 		AdsetName:           entry.AdsetName,
-// 		SiteID:              entry.SiteID,
-// 		Ad:                  entry.Ad,
-// 		LtvCountry:          entry.LtvCountry,
-// 		Installs:            entry.Installs,
-// 		Impressions:         entry.Impressions,
-// 		Clicks:              entry.Clicks,
-// 		Loyals:              entry.Loyals,
-// 		OrganicInstalls:     entry.OrganicInstalls,
-// 		OrganicImpressions:  entry.OrganicImpressions,
-// 		OrganicClicks:       entry.OrganicClicks,
-// 		OrganicLoyals:       entry.OrganicLoyals,
-// 		LogTime:             entry.LogTime,
-// 	}
-// }
-
-func FromCSVRow(row map[string]string) Model.LogEntry {
-	return Model.LogEntry{
+func ParseCSVRaw(r Reader.RawRecord) *Model.LogEntry {
+	var row map[string]string
+	if err := json.Unmarshal([]byte(r.RawQuery), &row); err != nil {
+		return nil
+	}
+	entry := Model.LogEntry{
 		CampaignID:          row["campaign_id"],
 		Partner:             row["partner"],
 		AppID:               row["app_id"],
@@ -89,21 +69,41 @@ func FromCSVRow(row map[string]string) Model.LogEntry {
 		OrganicClicks:       parseInt(row["organic_clicks"]),
 		OrganicLoyals:       parseInt(row["organic_loyals"]),
 		LogTime:             parseTime(row["log_time"]),
+		IP:                  row["ip"],
 	}
+	return &entry
 }
 
-func parseInt(value string) int {
-	i, err := strconv.Atoi(value)
+func parseInt(s string) int {
+	i, err := strconv.Atoi(s)
 	if err != nil {
 		return 0
 	}
 	return i
 }
 
-func parseTime(value string) time.Time {
-	t, err := time.Parse(time.RFC3339, value)
+func parseTime(s string) time.Time {
+	t, err := time.Parse(time.RFC3339, s)
 	if err != nil {
 		return time.Time{}
 	}
 	return t
+}
+
+func GetDim(dims []Model.DimensionSpec, name string) string {
+	for _, d := range dims {
+		if d.Dimension == name {
+			return d.OutputName
+		}
+	}
+	return ""
+}
+
+func GetAgg(aggs []Model.AggregationSpec, name string) int {
+	for _, a := range aggs {
+		if a.Name == name {
+			return 1
+		}
+	}
+	return 0
 }

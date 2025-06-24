@@ -2,45 +2,43 @@ package Reader
 
 import (
 	"encoding/csv"
-	"fmt"
 	"os"
-	"github.com/HadasAmar/analytics-load-tool.git/Parser"
+	"encoding/json"
 )
 
-func ProcessCSVFile(filename string) error {
+func ReadCSVFile(filename string) ([]RawRecord, error) {
 	file, err := os.Open(filename)
 	if err != nil {
-		fmt.Println("שגיאה בפתיחת הקובץ:", err)
-		return err
+		return nil, err
 	}
 	defer file.Close()
 
 	reader := csv.NewReader(file)
 	records, err := reader.ReadAll()
-	if err != nil {
-		return err
-	}
-
-	if len(records) < 1 {
-		return fmt.Errorf("קובץ ריק")
+	if err != nil || len(records) < 1 {
+		return nil, err
 	}
 
 	headers := records[0]
+	var result []RawRecord
 
-	for i, record := range records[1:] {
-		if len(record) != len(headers) {
-			fmt.Printf("שורה %d באורך שונה מהכותרת\n", i+2)
+	for _, row := range records[1:] {
+		if len(row) != len(headers) {
 			continue
 		}
 
-		row := make(map[string]string)
-		for j, value := range record {
-			row[headers[j]] = value
+		obj := map[string]string{}
+		for i, h := range headers {
+			obj[h] = row[i]
 		}
+		jsonBytes, _ := json.Marshal(obj)
 
-		converted := Parser.FromCSVRow(row)
-		fmt.Printf("🚀 שורה %d אחרי המרה: %+v\n", i+2, converted)
+		result = append(result, RawRecord{
+			Timestamp: obj["log_time"],
+			IP:        obj["ip"],
+			RawQuery:  string(jsonBytes),
+		})
 	}
 
-	return nil
+	return result, nil
 }

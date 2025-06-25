@@ -1,41 +1,101 @@
 ﻿package main
 
 import (
-	"encoding/json"
+	"context"
 	"fmt"
+	"github.com/HadasAmar/analytics-load-tool/Model"
+	"github.com/HadasAmar/analytics-load-tool/Output"
+	"github.com/HadasAmar/analytics-load-tool/Parser"
+	"github.com/HadasAmar/analytics-load-tool/Reader"
+	"github.com/HadasAmar/analytics-load-tool/Simulator"
+	"github.com/HadasAmar/analytics-load-tool/Writer"
 	"log"
-
-	"github.com/shilat214/analytics-load-tool/bq_adapter" // ← עדכני בהתאם לשם המודול שלך אם שונה
+	"os"
+	"path/filepath"
+	"time"
 )
 
 func main() {
-	jsonData := `[
-		{"date": "2023-06-23", "country": "IL", "media_source": "facebook", "revenue": 123.45, "event_count": 10},
-		{"date": "23-06-2023", "country": "US", "media_source": "google", "revenue": 99.99, "event_count": 5},
-		{"date": "2023/06/22", "country": "DE", "media_source": "twitter", "revenue": 0, "event_count": 0},
-		{"date": "Jun 21, 2023", "country": "FR", "media_source": "instagram", "revenue": 250.00, "event_count": 15},
-		{"date": "invalid-date", "country": "UK", "media_source": "linkedin", "revenue": 50, "event_count": 2},
-		{"date": "2023-06-20", "country": "", "media_source": "snapchat", "revenue": 75.5, "event_count": 8}
-	]`
+	if len(os.Args) < 2 {
+		fmt.Println("Usage: go run main.go <filename>")
+		return
+	}
 
-	var logs []bq_adapter.LogRecord
-	err := json.Unmarshal([]byte(jsonData), &logs)
+	filename := os.Args[1]
+	rawRecords, err := Reader.ReadFile(filename)
 	if err != nil {
-		log.Fatalf("❌ Error unmarshaling JSON: %v", err)
+		fmt.Println("Error reading file:", err)
+		return
 	}
 
-	bqRecords, errs := bq_adapter.ConvertListToBQ(logs)
+	entries := []Model.LogEntry{}
+	ext := filepath.Ext(filename)
 
-	fmt.Println("✅ Valid records:")
-	for _, r := range bqRecords {
-		fmt.Printf("%+v\n", r)
-	}
-
-	if len(errs) > 0 {
-		fmt.Println("\n⚠️ Errors:")
-		for _, e := range errs {
-			fmt.Println(e)
+	if ext == ".csv" {
+		for _, raw := range rawRecords {
+			entry := Parser.ParseCSVRaw(raw)
+			if entry != nil {
+				entries = append(entries, *entry)
+			}
+		}
+	} else {
+		for _, raw := range rawRecords {
+			entry := Parser.ParseRecord(raw)
+			if entry != nil {
+				entries = append(entries, *entry)
+			}
 		}
 	}
+
+	// שלב סימולציה
+	sim := Simulator.New(10.0)
+
+	// הגדרת יעד
+	ctx := context.Background()
+	w, err := Writer.NewBQWriter(ctx,
+		"../credentials.json",
+		"platform-hackaton-2025",
+		"My_Try",
+		"loadtool_logs",
+	)
+	if err != nil {
+		log.Fatalf("❌ שגיאה בהגדרת יעד BQ: %v", err)
+	}
+
+	// דוגמת כתיבה ל-BQ: רק רשומה אחת קבועה
+	record := &Writer.LogRecord{
+		CampaignID:          "abc123",
+		AppID:               "com.kuku",
+		Partner:             "partnerA",
+		MediaSource:         "ms",
+		UnmaskedMediaSource: "ms",
+		AttributionType:     "install",
+		Campaign:            "camp_test",
+		Source:              "sourceA",
+		AdID:                "ad1",
+		AdsetID:             "adset1",
+		AdsetName:           "set name",
+		SiteID:              "site1",
+		Ad:                  "adtext",
+		LtvCountry:          "US",
+		Installs:            15,
+		Impressions:         100,
+		Clicks:              30,
+		Loyals:              3,
+		OrganicInstalls:     1,
+		OrganicImpressions:  5,
+		OrganicClicks:       2,
+		OrganicLoyals:       1,
+		LogTime:             time.Now(),
+	}
+
+	// כתיבה לפלט jsonl
+	for e := range sim.Stream(entries) {
+		Output.WriteJSONL("output.jsonl", e)
+	}
+
+	// שליחה ל-BQ (רק הרשומה הבודדת)
+	if err := w.Write([]*Writer.LogRecord{record}); err != nil {
+		log.Fatalf("❌ שגיאה בכתיבה ל-BQ: %v", err)
+	}
 }
- 

@@ -1,66 +1,35 @@
 package Reader
 
 import (
-    "encoding/json"
-    "fmt"
-    "os"
-    "time"
+	"encoding/json"
+	"os"
+	"github.com/HadasAmar/analytics-load-tool/Model"
 )
 
+func ReadJSONFile(filename string) ([]RawRecord, error) {
+	data, err := os.ReadFile(filename)
+	if err != nil {
+		return nil, err
+	}
 
-func ProcessJSONFile(filename string) {
-    data, err := os.ReadFile(filename)
-    if err != nil {
-        fmt.Println("שגיאה בקריאת קובץ:", err)
-        return
-    }
+	var input []struct {
+		Timestamp string          `json:"timestamp"`
+		IP        string          `json:"ip"`
+		Query     Model.QueryData `json:"query"`
+	}
 
-    var records []struct {
-        Timestamp string    `json:"timestamp"`
-        IP        string    `json:"ip"`
-        Query     QueryData `json:"query"`
-    }
+	if err := json.Unmarshal(data, &input); err != nil {
+		return nil, err
+	}
 
-    err = json.Unmarshal(data, &records)
-    if err != nil {
-        fmt.Println("שגיאת JSON:", err)
-        return
-    }
-
-    for i, rec := range records {
-        timestamp, err := time.Parse(time.RFC3339, rec.Timestamp)
-        if err != nil {
-            fmt.Printf("שגיאת זמן בשורה %d: %v\n", i+1, err)
-            continue
-        }
-
-        entry := LogEntry{
-            CampaignID:          getDim(rec.Query.Dimensions, "campaign_id"),
-            Partner:             getDim(rec.Query.Dimensions, "partner"),
-            AppID:               getDim(rec.Query.Dimensions, "app_id"),
-            UnmaskedMediaSource: getDim(rec.Query.Dimensions, "unmasked_media_source"),
-            MediaSource:         getDim(rec.Query.Dimensions, "media_source"),
-            AttributionType:     getDim(rec.Query.Dimensions, "attribution_type"),
-            Campaign:            getDim(rec.Query.Dimensions, "campaign"),
-            Source:              getDim(rec.Query.Dimensions, "source"),
-            AdID:                getDim(rec.Query.Dimensions, "ad_id"),
-            AdsetID:             getDim(rec.Query.Dimensions, "adset_id"),
-            AdsetName:           getDim(rec.Query.Dimensions, "adset_name"),
-            SiteID:              getDim(rec.Query.Dimensions, "site_id"),
-            Ad:                  getDim(rec.Query.Dimensions, "ad"),
-            LtvCountry:          getDim(rec.Query.Dimensions, "ltv_country"),
-            Installs:            getAgg(rec.Query.Aggregations, "installs"),
-            Impressions:         getAgg(rec.Query.Aggregations, "impressions"),
-            Clicks:              getAgg(rec.Query.Aggregations, "clicks"),
-            Loyals:              getAgg(rec.Query.Aggregations, "loyals"),
-            OrganicInstalls:     getAgg(rec.Query.Aggregations, "organic_installs"),
-            OrganicImpressions:  getAgg(rec.Query.Aggregations, "organic_impressions"),
-            OrganicClicks:       getAgg(rec.Query.Aggregations, "organic_clicks"),
-            OrganicLoyals:       getAgg(rec.Query.Aggregations, "organic_loyals"),
-            LogTime:             timestamp,
-            IP:                  rec.IP,
-        }
-
-        fmt.Printf("✅ %s - IP: %s - AppID: %s\n", entry.LogTime, entry.IP, entry.AppID)
-    }
+	var result []RawRecord
+	for _, row := range input {
+		queryBytes, _ := json.Marshal(row.Query)
+		result = append(result, RawRecord{
+			Timestamp: row.Timestamp,
+			IP:        row.IP,
+			RawQuery:  string(queryBytes),
+		})
+	}
+	return result, nil
 }

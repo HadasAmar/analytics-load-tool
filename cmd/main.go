@@ -100,6 +100,7 @@ func main() {
 		log.Fatalf("❌ שגיאה בכתיבה ל-BQ: %v", err)
 	}
 
+	//config..........
 	    // 1. קונפיגורציית ברירת מחדל (מתחברת ל-localhost:8500)
     config := api.DefaultConfig()
 

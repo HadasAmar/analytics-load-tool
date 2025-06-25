@@ -1,4 +1,4 @@
 
-module github.com/HadasAmar/analytics-load-tool.git
+module github.com/shilat214/analytics-load-tool
 
-go 1.24.4
+go 1.24.4ä

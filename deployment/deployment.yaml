@@ -1,0 +1,35 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: analytics-load-tool
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: analytics-load-tool
+  template:
+    metadata:
+      labels:
+        app: analytics-load-tool
+    spec:
+      containers:
+        - name: analytics
+          image: <YOUR_DOCKER_IMAGE>
+          imagePullPolicy: Always
+          volumeMounts:
+            - name: credentials-volume
+              mountPath: /app/credentials.json
+              subPath: credentials.json
+            - name: logs-volume
+              mountPath: /app/logs.json
+              subPath: logs.json
+          env:
+            - name: GOOGLE_APPLICATION_CREDENTIALS
+              value: /app/credentials.json
+      volumes:
+        - name: credentials-volume
+          configMap:
+            name: credentials-config
+        - name: logs-volume
+          configMap:
+            name: logs-config

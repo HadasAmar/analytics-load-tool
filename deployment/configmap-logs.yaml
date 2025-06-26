@@ -1,0 +1,10 @@
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: logs-config
+data:
+  logs.json: |
+    [
+      {"queryType": "groupBy", ...},
+      ...
+    ]

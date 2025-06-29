@@ -31,3 +31,8 @@ func ReadLogFile(filename string) ([]RawRecord, error) {
 
 	return result, scanner.Err()
 }
+type LogReader struct{}
+
+func (l LogReader) Read(filename string) ([]RawRecord, error) {
+	return ReadLogFile(filename)
+}

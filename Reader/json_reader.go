@@ -33,3 +33,8 @@ func ReadJSONFile(filename string) ([]RawRecord, error) {
 	}
 	return result, nil
 }
+type JSONReader struct{}
+
+func (j JSONReader) Read(filename string) ([]RawRecord, error) {
+	return ReadJSONFile(filename)
+}

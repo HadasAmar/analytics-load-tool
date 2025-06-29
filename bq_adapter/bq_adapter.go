@@ -1,6 +1,7 @@
 ﻿package bq_adapter
 
 import (
+	"encoding/json"
 	"errors"
 	"fmt"
 	"time"
@@ -35,54 +36,81 @@ type BQLogRecord struct {
 	OrganicLoyals        int       `json:"organic_loyals"`
 }
 
-func ConvertLogEntryToBQ(entry Model.LogEntry) (BQLogRecord, error) {
-	if entry.LogTime.IsZero() {
-		return BQLogRecord{}, errors.New("log_time is missing or invalid")
+func ConvertParsedToBQ(p Model.ParsedRecord) (BQLogRecord, error) {
+	if p.LogTime.IsZero() {
+		return BQLogRecord{}, errors.New("missing or invalid timestamp")
 	}
-	if entry.IP == "" {
-		return BQLogRecord{}, errors.New("ip is missing")
+	if p.IP == "" {
+		return BQLogRecord{}, errors.New("missing IP address")
+	}
+	if p.Query == "" {
+		return BQLogRecord{}, errors.New("missing query data")
+	}
+
+	var q Model.QueryData
+	err := json.Unmarshal([]byte(p.Query), &q)
+	if err != nil {
+		return BQLogRecord{}, fmt.Errorf("invalid JSON query: %v", err)
 	}
 
 	return BQLogRecord{
-		LogTime:             entry.LogTime,
-		IP:                  entry.IP,
-		CampaignID:          entry.CampaignID,
-		Partner:             entry.Partner,
-		AppID:               entry.AppID,
-		UnmaskedMediaSource: entry.UnmaskedMediaSource,
-		MediaSource:         entry.MediaSource,
-		AttributionType:     entry.AttributionType,
-		Campaign:            entry.Campaign,
-		Source:              entry.Source,
-		AdID:                entry.AdID,
-		AdsetID:             entry.AdsetID,
-		AdsetName:           entry.AdsetName,
-		SiteID:              entry.SiteID,
-		Ad:                  entry.Ad,
-		LtvCountry:          entry.LtvCountry,
-		Installs:            entry.Installs,
-		Impressions:         entry.Impressions,
-		Clicks:              entry.Clicks,
-		Loyals:              entry.Loyals,
-		OrganicInstalls:     entry.OrganicInstalls,
-		OrganicImpressions:  entry.OrganicImpressions,
-		OrganicClicks:       entry.OrganicClicks,
-		OrganicLoyals:       entry.OrganicLoyals,
+		LogTime:             p.LogTime,
+		IP:                  p.IP,
+		CampaignID:          getDim(q.Dimensions, "campaign_id"),
+		Partner:             getDim(q.Dimensions, "partner"),
+		AppID:               getDim(q.Dimensions, "app_id"),
+		UnmaskedMediaSource: getDim(q.Dimensions, "unmasked_media_source"),
+		MediaSource:         getDim(q.Dimensions, "media_source"),
+		AttributionType:     getDim(q.Dimensions, "attribution_type"),
+		Campaign:            getDim(q.Dimensions, "campaign"),
+		Source:              getDim(q.Dimensions, "source"),
+		AdID:                getDim(q.Dimensions, "ad_id"),
+		AdsetID:             getDim(q.Dimensions, "adset_id"),
+		AdsetName:           getDim(q.Dimensions, "adset_name"),
+		SiteID:              getDim(q.Dimensions, "site_id"),
+		Ad:                  getDim(q.Dimensions, "ad"),
+		LtvCountry:          getDim(q.Dimensions, "ltv_country"),
+		Installs:            getAgg(q.Aggregations, "installs"),
+		Impressions:         getAgg(q.Aggregations, "impressions"),
+		Clicks:              getAgg(q.Aggregations, "clicks"),
+		Loyals:              getAgg(q.Aggregations, "loyals"),
+		OrganicInstalls:     getAgg(q.Aggregations, "organic_installs"),
+		OrganicImpressions:  getAgg(q.Aggregations, "organic_impressions"),
+		OrganicClicks:       getAgg(q.Aggregations, "organic_clicks"),
+		OrganicLoyals:       getAgg(q.Aggregations, "organic_loyals"),
 	}, nil
 }
 
-func ConvertLogEntriesToBQ(entries []Model.LogEntry) ([]BQLogRecord, []error) {
+func ConvertParsedListToBQ(parsedList []Model.ParsedRecord) ([]BQLogRecord, []error) {
 	var records []BQLogRecord
-	var errs []error
+	var errorsList []error
 
-	for i, entry := range entries {
-		bq, err := ConvertLogEntryToBQ(entry)
+	for i, p := range parsedList {
+		bq, err := ConvertParsedToBQ(p)
 		if err != nil {
-			errs = append(errs, fmt.Errorf("entry %d: %v", i, err))
+			errorsList = append(errorsList, fmt.Errorf("record %d: %v", i, err))
 			continue
 		}
 		records = append(records, bq)
 	}
 
-	return records, errs
+	return records, errorsList
+}
+
+func getDim(dims []Model.DimensionSpec, name string) string {
+	for _, d := range dims {
+		if d.Dimension == name {
+			return d.OutputName
+		}
+	}
+	return ""
+}
+
+func getAgg(aggs []Model.AggregationSpec, name string) int {
+	for _, a := range aggs {
+		if a.Name == name {
+			return 1
+		}
+	}
+	return 0
 }

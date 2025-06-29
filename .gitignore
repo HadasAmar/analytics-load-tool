@@ -25,6 +25,9 @@ my-go-project  # (אם שם הפרויקט שונה – תעדכני בהתאם)
 .idea/
 *.code-workspace
 
+# תיקיית הגדרות Visual Studio
+.vs/
+
 # קבצים של מערכת
 .DS_Store
 Thumbs.db

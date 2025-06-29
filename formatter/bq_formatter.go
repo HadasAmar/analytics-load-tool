@@ -1,4 +1,4 @@
-﻿package bq_adapter
+package formatter
 
 import (
 	"encoding/json"
@@ -36,21 +36,23 @@ type BQLogRecord struct {
 	OrganicLoyals        int       `json:"organic_loyals"`
 }
 
-func ConvertParsedToBQ(p Model.ParsedRecord) (BQLogRecord, error) {
+type BQFormatter struct{}
+
+func (f BQFormatter) Format(p Model.ParsedRecord) (FormattedRecord, error) {
 	if p.LogTime.IsZero() {
-		return BQLogRecord{}, errors.New("missing or invalid timestamp")
+		return nil, errors.New("missing or invalid timestamp")
 	}
 	if p.IP == "" {
-		return BQLogRecord{}, errors.New("missing IP address")
+		return nil, errors.New("missing IP address")
 	}
 	if p.Query == "" {
-		return BQLogRecord{}, errors.New("missing query data")
+		return nil, errors.New("missing query data")
 	}
 
 	var q Model.QueryData
 	err := json.Unmarshal([]byte(p.Query), &q)
 	if err != nil {
-		return BQLogRecord{}, fmt.Errorf("invalid JSON query: %v", err)
+		return nil, fmt.Errorf("invalid JSON query: %v", err)
 	}
 
 	return BQLogRecord{
@@ -79,22 +81,6 @@ func ConvertParsedToBQ(p Model.ParsedRecord) (BQLogRecord, error) {
 		OrganicClicks:       getAgg(q.Aggregations, "organic_clicks"),
 		OrganicLoyals:       getAgg(q.Aggregations, "organic_loyals"),
 	}, nil
-}
-
-func ConvertParsedListToBQ(parsedList []Model.ParsedRecord) ([]BQLogRecord, []error) {
-	var records []BQLogRecord
-	var errorsList []error
-
-	for i, p := range parsedList {
-		bq, err := ConvertParsedToBQ(p)
-		if err != nil {
-			errorsList = append(errorsList, fmt.Errorf("record %d: %v", i, err))
-			continue
-		}
-		records = append(records, bq)
-	}
-
-	return records, errorsList
 }
 
 func getDim(dims []Model.DimensionSpec, name string) string {

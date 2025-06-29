@@ -42,3 +42,9 @@ func ReadCSVFile(filename string) ([]RawRecord, error) {
 
 	return result, nil
 }
+type CSVReader struct{}
+
+func (c CSVReader) Read(filename string) ([]RawRecord, error) {
+	return ReadCSVFile(filename)
+}
+

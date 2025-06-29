@@ -3,15 +3,15 @@
 import (
 	"context"
 	"fmt"
-	"github.com/HadasAmar/analytics-load-tool/Model"
-	"github.com/HadasAmar/analytics-load-tool/Output"
-	"github.com/HadasAmar/analytics-load-tool/Parser"
-	"github.com/HadasAmar/analytics-load-tool/Reader"
-	"github.com/HadasAmar/analytics-load-tool/Simulator"
-	"github.com/HadasAmar/analytics-load-tool/Writer"
 	"log"
 	"os"
-	"path/filepath"
+
+	"github.com/HadasAmar/analytics-load-tool/Model"
+	"github.com/HadasAmar/analytics-load-tool/Parser"
+	"github.com/HadasAmar/analytics-load-tool/Reader"
+	"github.com/HadasAmar/analytics-load-tool/Writer"
+
+	// "path/filepath"
 	"time"
 )
 
@@ -28,27 +28,15 @@ func main() {
 		return
 	}
 
-	entries := []Model.LogEntry{}
-	ext := filepath.Ext(filename)
-
-	if ext == ".csv" {
-		for _, raw := range rawRecords {
-			entry := Parser.ParseCSVRaw(raw)
-			if entry != nil {
-				entries = append(entries, *entry)
-			}
-		}
-	} else {
-		for _, raw := range rawRecords {
-			entry := Parser.ParseRecord(raw)
-			if entry != nil {
-				entries = append(entries, *entry)
-			}
+	parsedRecords := []*Model.ParsedRecord{}
+	for _, raw := range rawRecords {
+		p := Parser.ParseRawRecord(raw)
+		if p != nil {
+			parsedRecords = append(parsedRecords, p)
 		}
 	}
 
-	// שלב סימולציה
-	sim := Simulator.New(10.0)
+
 
 	// הגדרת יעד
 	ctx := context.Background()
@@ -87,11 +75,6 @@ func main() {
 		OrganicClicks:       2,
 		OrganicLoyals:       1,
 		LogTime:             time.Now(),
-	}
-
-	// כתיבה לפלט jsonl
-	for e := range sim.Stream(entries) {
-		Output.WriteJSONL("output.jsonl", e)
 	}
 
 	// שליחה ל-BQ (רק הרשומה הבודדת)

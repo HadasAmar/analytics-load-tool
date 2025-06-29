@@ -2,6 +2,12 @@ package Model
 
 import "time"
 
+type ParsedRecord struct {
+	LogTime time.Time
+	IP      string
+	Query   string
+}
+
 type DimensionSpec struct {
 	Dimension  string `json:"dimension"`
 	OutputName string `json:"outputName"`

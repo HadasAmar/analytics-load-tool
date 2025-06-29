@@ -3,90 +3,86 @@
 import (
 	"errors"
 	"fmt"
-	"strings"
 	"time"
+
+	"github.com/HadasAmar/analytics-load-tool/Model"
 )
 
-type LogRecord struct {
-	Date        string  `json:"date"`
-	Country     string  `json:"country"`
-	MediaSource string  `json:"media_source"`
-	Revenue     float64 `json:"revenue"`
-	EventCount  int     `json:"event_count"`
+type BQLogRecord struct {
+	LogTime              time.Time `json:"log_time"`
+	IP                   string    `json:"ip"`
+	CampaignID           string    `json:"campaign_id"`
+	Partner              string    `json:"partner"`
+	AppID                string    `json:"app_id"`
+	UnmaskedMediaSource  string    `json:"unmasked_media_source"`
+	MediaSource          string    `json:"media_source"`
+	AttributionType      string    `json:"attribution_type"`
+	Campaign             string    `json:"campaign"`
+	Source               string    `json:"source"`
+	AdID                 string    `json:"ad_id"`
+	AdsetID              string    `json:"adset_id"`
+	AdsetName            string    `json:"adset_name"`
+	SiteID               string    `json:"site_id"`
+	Ad                   string    `json:"ad"`
+	LtvCountry           string    `json:"ltv_country"`
+	Installs             int       `json:"installs"`
+	Impressions          int       `json:"impressions"`
+	Clicks               int       `json:"clicks"`
+	Loyals               int       `json:"loyals"`
+	OrganicInstalls      int       `json:"organic_installs"`
+	OrganicImpressions   int       `json:"organic_impressions"`
+	OrganicClicks        int       `json:"organic_clicks"`
+	OrganicLoyals        int       `json:"organic_loyals"`
 }
 
-type BQRecord struct {
-	Date        time.Time `json:"date"`
-	Country     string    `json:"country"`
-	MediaSource string    `json:"media_source"`
-	Revenue     float64   `json:"revenue"`
-	EventCount  int       `json:"event_count"`
-}
-
-// 🔧 ניסיון לפרש תאריך בכמה פורמטים
-func parseFlexibleDate(input string) (time.Time, error) {
-	formats := []string{
-		"2006-01-02", // פורמט רגיל
-		"02-01-2006", // יום-חודש-שנה
-		"2006/01/02", // עם /
-		"02/01/2006",
-		"Jan 2, 2006",
+func ConvertLogEntryToBQ(entry Model.LogEntry) (BQLogRecord, error) {
+	if entry.LogTime.IsZero() {
+		return BQLogRecord{}, errors.New("log_time is missing or invalid")
+	}
+	if entry.IP == "" {
+		return BQLogRecord{}, errors.New("ip is missing")
 	}
 
-	for _, layout := range formats {
-		if t, err := time.Parse(layout, input); err == nil {
-			return t, nil
-		}
-	}
-
-	return time.Time{}, fmt.Errorf("could not parse date: %s", input)
-}
-
-func ConvertToBQ(input LogRecord) (BQRecord, error) {
-	// 1. תאריך
-	parsedDate, err := parseFlexibleDate(strings.TrimSpace(input.Date))
-	if err != nil {
-		return BQRecord{}, fmt.Errorf("invalid date format: %v", err)
-	}
-
-	// 2. שדות חובה
-	if strings.TrimSpace(input.Country) == "" {
-		return BQRecord{}, errors.New("missing country field")
-	}
-	if strings.TrimSpace(input.MediaSource) == "" {
-		return BQRecord{}, errors.New("missing media_source field")
-	}
-
-	// 3. בדיקות ערכים חריגים
-	if input.Revenue < 0 {
-		return BQRecord{}, errors.New("revenue cannot be negative")
-	}
-	if input.EventCount < 0 {
-		return BQRecord{}, errors.New("event_count cannot be negative")
-	}
-
-	// 4. המרה
-	return BQRecord{
-		Date:        parsedDate,
-		Country:     input.Country,
-		MediaSource: input.MediaSource,
-		Revenue:     input.Revenue,
-		EventCount:  input.EventCount,
+	return BQLogRecord{
+		LogTime:             entry.LogTime,
+		IP:                  entry.IP,
+		CampaignID:          entry.CampaignID,
+		Partner:             entry.Partner,
+		AppID:               entry.AppID,
+		UnmaskedMediaSource: entry.UnmaskedMediaSource,
+		MediaSource:         entry.MediaSource,
+		AttributionType:     entry.AttributionType,
+		Campaign:            entry.Campaign,
+		Source:              entry.Source,
+		AdID:                entry.AdID,
+		AdsetID:             entry.AdsetID,
+		AdsetName:           entry.AdsetName,
+		SiteID:              entry.SiteID,
+		Ad:                  entry.Ad,
+		LtvCountry:          entry.LtvCountry,
+		Installs:            entry.Installs,
+		Impressions:         entry.Impressions,
+		Clicks:              entry.Clicks,
+		Loyals:              entry.Loyals,
+		OrganicInstalls:     entry.OrganicInstalls,
+		OrganicImpressions:  entry.OrganicImpressions,
+		OrganicClicks:       entry.OrganicClicks,
+		OrganicLoyals:       entry.OrganicLoyals,
 	}, nil
 }
-// ConvertListToBQ מקבלת רשימת רשומות לוג ומחזירה רשימות מומרות + שגיאות
-func ConvertListToBQ(inputs []LogRecord) ([]BQRecord, []error) {
-	var validRecords []BQRecord
-	var errorsList []error
 
-	for i, record := range inputs {
-		bq, err := ConvertToBQ(record)
+func ConvertLogEntriesToBQ(entries []Model.LogEntry) ([]BQLogRecord, []error) {
+	var records []BQLogRecord
+	var errs []error
+
+	for i, entry := range entries {
+		bq, err := ConvertLogEntryToBQ(entry)
 		if err != nil {
-			errorsList = append(errorsList, fmt.Errorf("record %d: %v", i, err))
+			errs = append(errs, fmt.Errorf("entry %d: %v", i, err))
 			continue
 		}
-		validRecords = append(validRecords, bq)
+		records = append(records, bq)
 	}
 
-	return validRecords, errorsList
+	return records, errs
 }

@@ -1,30 +1,43 @@
 package Parser
 
 import (
-	"encoding/json"
-	"fmt"
+	"log"
+	"strings"
 	"time"
-
 	"github.com/HadasAmar/analytics-load-tool/Model"
 	"github.com/HadasAmar/analytics-load-tool/Reader"
 )
 
-type LogEntry = Model.LogEntry
+// function to parse a raw record from the Reader package
+func ParseRawRecord(r Reader.RawRecord) *Model.ParsedRecord {
+	// ניקוי רווחים מה-IP
+	cleanIP := strings.TrimSpace(r.IP)
 
-func ParseRecord(r Reader.RawRecord) *LogEntry {
-	var query Model.QueryData
-	fmt.Println("📥 Raw JSON:", r.RawQuery)
-	err := json.Unmarshal([]byte(r.RawQuery), &query)
-	if err != nil {
-		fmt.Println("Error parsing query:", err)
+	if cleanIP == "" {
+		log.Printf("⚠️ skipping record with empty IP")
 		return nil
 	}
+
+	// parse timestamp with fallback
 	t, err := time.Parse(time.RFC3339, r.Timestamp)
 	if err != nil {
-		fmt.Println("Error parsing timestamp:", err)
+		log.Printf("⚠️ failed to parse timestamp %s: %v", r.Timestamp, err)
+		t = time.Time{}
+	}
+
+	if r.RawQuery == "" {
+		log.Printf("⚠️ missing query data for timestamp %s", r.Timestamp)
 		return nil
 	}
-	fmt.Println("Parsed query:", query)
-	entry := FromQueryRecord(t, r.IP, query)
-	return &entry
+
+	// log a successful parse
+	log.Printf("✅ Parsed OK: time=%s ip=%s", t.Format(time.RFC3339), cleanIP)
+
+	parsed:= &Model.ParsedRecord{
+		LogTime: t,
+		IP:      cleanIP,
+		Query:   r.RawQuery,
+	}
+	log.Printf("✅ ParsedRecord Full: %+v", parsed)
+	return parsed
 }

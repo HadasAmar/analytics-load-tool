@@ -1,23 +1,22 @@
 package main
 
 import (
-	// "context"
+	"context"
 	"fmt"
 	"log"
 
 	"github.com/HadasAmar/analytics-load-tool/Model"
 
-	// "github.com/HadasAmar/analytics-load-tool/Output"
+	"github.com/HadasAmar/analytics-load-tool/Output"
 	"github.com/HadasAmar/analytics-load-tool/Parser"
 	"github.com/HadasAmar/analytics-load-tool/Reader"
 
-	// "github.com/HadasAmar/analytics-load-tool/Simulator"
-	// "github.com/HadasAmar/analytics-load-tool/Writer"
-	// "log"
+	"github.com/HadasAmar/analytics-load-tool/Simulator"
+	"github.com/HadasAmar/analytics-load-tool/Writer"
 	"os"
 	"path/filepath"
 
-	// "time"
+	"time"
 	"github.com/HadasAmar/analytics-load-tool/configuration"
 )
 
@@ -54,56 +53,56 @@ func main() {
 	}
 
 	// שלב סימולציה
-	// sim := Simulator.New(10.0)
+	sim := Simulator.New(10.0)
 
-	// // הגדרת יעד
-	// ctx := context.Background()
-	// w, err := Writer.NewBQWriter(ctx,
-	// 	"credentials.json",
-	// 	"platform-hackaton-2025",
-	// 	"My_Try",
-	// 	"loadtool_logs",
-	// )
-	// if err != nil {
-	// 	log.Fatalf("❌ שגיאה בהגדרת יעד BQ: %v", err)
-	// }
+	// הגדרת יעד
+	ctx := context.Background()
+	w, err := Writer.NewBQWriter(ctx,
+		"credentials.json",
+		"platform-hackaton-2025",
+		"My_Try",
+		"loadtool_logs",
+	)
+	if err != nil {
+		log.Fatalf("❌ שגיאה בהגדרת יעד BQ: %v", err)
+	}
 
-	// // דוגמת כתיבה ל-BQ: רק רשומה אחת קבועה
-	// record := &Writer.LogRecord{
-	// 	CampaignID:          "abc123",
-	// 	AppID:               "com.kuku",
-	// 	Partner:             "partnerA",
-	// 	MediaSource:         "ms",
-	// 	UnmaskedMediaSource: "ms",
-	// 	AttributionType:     "install",
-	// 	Campaign:            "camp_test",
-	// 	Source:              "sourceA",
-	// 	AdID:                "ad1",
-	// 	AdsetID:             "adset1",
-	// 	AdsetName:           "set name",
-	// 	SiteID:              "site1",
-	// 	Ad:                  "adtext",
-	// 	LtvCountry:          "US",
-	// 	Installs:            15,
-	// 	Impressions:         100,
-	// 	Clicks:              30,
-	// 	Loyals:              3,
-	// 	OrganicInstalls:     1,
-	// 	OrganicImpressions:  5,
-	// 	OrganicClicks:       2,
-	// 	OrganicLoyals:       1,
-	// 	LogTime:             time.Now(),
-	// }
+	// דוגמת כתיבה ל-BQ: רק רשומה אחת קבועה
+	record := &Writer.LogRecord{
+		CampaignID:          "abc123",
+		AppID:               "com.kuku",
+		Partner:             "partnerA",
+		MediaSource:         "ms",
+		UnmaskedMediaSource: "ms",
+		AttributionType:     "install",
+		Campaign:            "camp_test",
+		Source:              "sourceA",
+		AdID:                "ad1",
+		AdsetID:             "adset1",
+		AdsetName:           "set name",
+		SiteID:              "site1",
+		Ad:                  "adtext",
+		LtvCountry:          "US",
+		Installs:            15,
+		Impressions:         100,
+		Clicks:              30,
+		Loyals:              3,
+		OrganicInstalls:     1,
+		OrganicImpressions:  5,
+		OrganicClicks:       2,
+		OrganicLoyals:       1,
+		LogTime:             time.Now(),
+	}
 
-	// // כתיבה לפלט jsonl
-	// for e := range sim.Stream(entries) {
-	// 	Output.WriteJSONL("output.jsonl", e)
-	// }
+	// כתיבה לפלט jsonl
+	for e := range sim.Stream(entries) {
+		Output.WriteJSONL("output.jsonl", e)
+	}
 
-	// // שליחה ל-BQ (רק הרשומה הבודדת)
-	// if err := w.Write([]*Writer.LogRecord{record}); err != nil {
-	// 	log.Fatalf("❌ שגיאה בכתיבה ל-BQ: %v", err)
-	// }
+	// שליחה ל-BQ (רק הרשומה הבודדת)
+	if err := w.Write([]*Writer.LogRecord{record}); err != nil {
+		log.Fatalf("❌ שגיאה בכתיבה ל-BQ: %v", err)
+	}
 
 	//configuration
 	// Create the client

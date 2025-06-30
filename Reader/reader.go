@@ -1,8 +1,8 @@
 package Reader
 
 import (
-	"path/filepath"
 	"fmt"
+	"path/filepath"
 )
 
 type RawRecord struct {
@@ -11,16 +11,16 @@ type RawRecord struct {
 	RawQuery  string
 }
 
-func ReadFile(filename string) ([]RawRecord, error) {
+func GetReader(filename string) (FileReader, error) {
 	ext := filepath.Ext(filename)
 	switch ext {
-	case ".json":
-		return ReadJSONFile(filename)
 	case ".csv":
-		return ReadCSVFile(filename)
+		return CSVReader{}, nil
+	case ".json":
+		return JSONReader{}, nil
 	case ".log":
-		return ReadLogFile(filename)
+		return LogReader{}, nil
 	default:
-		return nil, fmt.Errorf("unsupported file type: %s", ext)
+		return nil, fmt.Errorf("unsupported file extension: %s", ext)
 	}
 }

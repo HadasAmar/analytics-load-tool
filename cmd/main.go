@@ -7,101 +7,69 @@ import (
 
 	"github.com/HadasAmar/analytics-load-tool/Model"
 
-	"github.com/HadasAmar/analytics-load-tool/Output"
+	//"github.com/HadasAmar/analytics-load-tool/Output"
 	"github.com/HadasAmar/analytics-load-tool/Parser"
 	"github.com/HadasAmar/analytics-load-tool/Reader"
 
-	"github.com/HadasAmar/analytics-load-tool/Simulator"
 	"github.com/HadasAmar/analytics-load-tool/Writer"
 	"os"
-	"path/filepath"
 
-	"time"
+	//"time"
 	"github.com/HadasAmar/analytics-load-tool/configuration"
+	"github.com/HadasAmar/analytics-load-tool/formatter"
+
 )
 
 func main() {
-	if len(os.Args) < 2 {
+		if len(os.Args) < 2 {
 		fmt.Println("Usage: go run main.go <filename>")
 		return
 	}
-
 	filename := os.Args[1]
-	rawRecords, err := Reader.ReadFile(filename)
+
+	// Step 1: Get reader
+	reader, err := Reader.GetReader(filename)
 	if err != nil {
-		fmt.Println("Error reading file:", err)
-		return
+		log.Fatalf("Error getting reader: %v", err)
 	}
 
-	entries := []Model.LogEntry{}
-	ext := filepath.Ext(filename)
+	rawRecords, err := reader.Read(filename)
+	if err != nil {
+		log.Fatalf("Error reading records: %v", err)
+	}
 
-	if ext == ".csv" {
-		for _, raw := range rawRecords {
-			entry := Parser.ParseCSVRaw(raw)
-			if entry != nil {
-				entries = append(entries, *entry)
-			}
-		}
-	} else {
-		for _, raw := range rawRecords {
-			entry := Parser.ParseRecord(raw)
-			if entry != nil {
-				entries = append(entries, *entry)
-			}
+	// Step 2: Parse records
+	var parsedRecords []Model.ParsedRecord
+	for _, raw := range rawRecords {
+		if p := Parser.ParseRawRecord(raw); p != nil {
+			log.Printf("Parsed OK: time=%s ip=%s", p.LogTime, p.IP)
+			parsedRecords = append(parsedRecords, *p)
 		}
 	}
 
-	// שלב סימולציה
-	sim := Simulator.New(10.0)
+	// Step 3: Convert to formatted records using BQFormatter
+	var formatted []interface{}
+	formatter := formatter.BQFormatter{}
 
-	// הגדרת יעד
+	for _, rec := range parsedRecords {
+		formattedRecord, err := formatter.Format(rec)
+		if err != nil {
+			log.Printf("Skipping record due to formatting error: %v", err)
+			continue
+		}
+		formatted = append(formatted, formattedRecord)
+	}
+
+	// Step 4: Init BQ Writer
 	ctx := context.Background()
-	w, err := Writer.NewBQWriter(ctx,
-		"credentials.json",
-		"platform-hackaton-2025",
-		"My_Try",
-		"loadtool_logs",
-	)
+	writer, err := Writer.NewBQWriter(ctx, "./credentials.json", "platform-hackaton-2025", "My_Try", "loadtool_logs")
 	if err != nil {
-		log.Fatalf("❌ שגיאה בהגדרת יעד BQ: %v", err)
+		log.Fatalf(" Failed to initialize BigQuery writer: %v", err)
 	}
 
-	// דוגמת כתיבה ל-BQ: רק רשומה אחת קבועה
-	record := &Writer.LogRecord{
-		CampaignID:          "abc123",
-		AppID:               "com.kuku",
-		Partner:             "partnerA",
-		MediaSource:         "ms",
-		UnmaskedMediaSource: "ms",
-		AttributionType:     "install",
-		Campaign:            "camp_test",
-		Source:              "sourceA",
-		AdID:                "ad1",
-		AdsetID:             "adset1",
-		AdsetName:           "set name",
-		SiteID:              "site1",
-		Ad:                  "adtext",
-		LtvCountry:          "US",
-		Installs:            15,
-		Impressions:         100,
-		Clicks:              30,
-		Loyals:              3,
-		OrganicInstalls:     1,
-		OrganicImpressions:  5,
-		OrganicClicks:       2,
-		OrganicLoyals:       1,
-		LogTime:             time.Now(),
-	}
-
-	// כתיבה לפלט jsonl
-	for e := range sim.Stream(entries) {
-		Output.WriteJSONL("output.jsonl", e)
-	}
-
-	// שליחה ל-BQ (רק הרשומה הבודדת)
-	if err := w.Write([]*Writer.LogRecord{record}); err != nil {
-		log.Fatalf("❌ שגיאה בכתיבה ל-BQ: %v", err)
+	// Step 5: Write to BigQuery
+	if err := writer.Write(formatted); err != nil {
+		log.Fatalf(" Failed to write to BigQuery: %v", err)
 	}
 
 	//configuration

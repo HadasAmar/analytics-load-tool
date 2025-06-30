@@ -22,15 +22,19 @@ func ReadLogFile(filename string) ([]RawRecord, error) {
 		if len(parts) < 3 {
 			continue
 		}
+		pq, _ := ParseRawQuery(parts[2])
 		result = append(result, RawRecord{
-			Timestamp: parts[0],
-			IP:        parts[1],
-			RawQuery:  parts[2],
+			Timestamp:   parts[0],
+			IP:          parts[1],
+			RawQuery:    parts[2],
+			ParsedQuery: pq,
 		})
+
 	}
 
 	return result, scanner.Err()
 }
+
 type LogReader struct{}
 
 func (l LogReader) Read(filename string) ([]RawRecord, error) {

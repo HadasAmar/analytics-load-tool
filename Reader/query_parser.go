@@ -8,22 +8,23 @@ import (
 )
 
 func ParseRawQuery(raw string) (*Model.ParsedQuery, error) {
-	var query struct {
-		QueryType   string `json:"queryType"`
-		DataSource  struct {
-			Type string `json:"type"`
-			Name string `json:"name"`
-		} `json:"dataSource"`
-		Dimensions []struct {
-			Dimension string `json:"dimension"`
-		} `json:"dimensions"`
-		Aggregations []struct {
-			Type      string `json:"type"`
-			Name      string `json:"name"`
-			FieldName string `json:"fieldName"`
-		} `json:"aggregations"`
-		Filter interface{} `json:"filter"`
-	}
+var query struct {
+	QueryType   string `json:"queryType"`
+	DataSource  struct {
+		Type string `json:"type"`
+		Name string `json:"name"`
+	} `json:"dataSource"`
+	Dimensions []struct {
+		Dimension string `json:"dimension"`
+	} `json:"dimensions"`
+	Aggregations []struct {
+		Type      string `json:"type"`
+		Name      string `json:"name"`
+		FieldName string `json:"fieldName"`
+	} `json:"aggregations"`
+	Filter *Model.FilterNode `json:"filter"`  // ✅ שימוש נכון
+}
+
 
 	if err := json.Unmarshal([]byte(raw), &query); err != nil {
 		return nil, err
@@ -39,13 +40,12 @@ func ParseRawQuery(raw string) (*Model.ParsedQuery, error) {
 		aggs = append(aggs, fmt.Sprintf("%s(%s) AS %s", a.Type, a.FieldName, a.Name))
 	}
 
-	filterSummary, _ := json.Marshal(query.Filter)
-
 	return &Model.ParsedQuery{
-		SelectFields:   selectFields,
-		TableName:      query.DataSource.Name,
-		GroupByFields:  selectFields,
-		Aggregations:   aggs,
-		FilterSummary:  string(filterSummary),
-	}, nil
+	SelectFields:   selectFields,
+	TableName:      query.DataSource.Name,
+	GroupByFields:  selectFields,
+	Aggregations:   aggs,
+	Filter:         query.Filter, // 🟢 מחזירה את הפילטר עצמו (כ־FilterNode)
+}, nil
+
 }

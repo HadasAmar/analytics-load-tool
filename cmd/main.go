@@ -4,17 +4,24 @@ import (
 	"context"
 	"fmt"
 	"log"
-	"os"
 
 	"github.com/HadasAmar/analytics-load-tool/Model"
+
+	//"github.com/HadasAmar/analytics-load-tool/Output"
 	"github.com/HadasAmar/analytics-load-tool/Parser"
 	"github.com/HadasAmar/analytics-load-tool/Reader"
+
 	"github.com/HadasAmar/analytics-load-tool/Writer"
+	"os"
+
+	//"time"
+	"github.com/HadasAmar/analytics-load-tool/configuration"
 	"github.com/HadasAmar/analytics-load-tool/formatter"
+
 )
 
 func main() {
-	if len(os.Args) < 2 {
+		if len(os.Args) < 2 {
 		fmt.Println("Usage: go run main.go <filename>")
 		return
 	}
@@ -63,5 +70,20 @@ func main() {
 	// Step 5: Write to BigQuery
 	if err := writer.Write(formatted); err != nil {
 		log.Fatalf(" Failed to write to BigQuery: %v", err)
+	}
+
+	//configuration
+	// Create the client
+	client, err := configuration.NewConsulClient("localhost:8500")
+	if err != nil {
+		log.Fatalf("Error creating Consul client: %v", err)
+	}
+
+	// Calling get_values
+	speedFactor, err := configuration.GetSpeedFactor(client)
+	if err != nil {
+		fmt.Println("Did not find value in Consul")
+	} else {
+		fmt.Printf("The value from Consul: %s\n", speedFactor)
 	}
 }

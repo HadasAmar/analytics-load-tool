@@ -1,4 +1,4 @@
-﻿package main
+package main
 
 import (
 	"context"
@@ -10,9 +10,7 @@ import (
 	"github.com/HadasAmar/analytics-load-tool/Parser"
 	"github.com/HadasAmar/analytics-load-tool/Reader"
 	"github.com/HadasAmar/analytics-load-tool/Writer"
-
-	// "path/filepath"
-	"time"
+	"github.com/HadasAmar/analytics-load-tool/formatter"
 )
 
 func main() {
@@ -20,101 +18,50 @@ func main() {
 		fmt.Println("Usage: go run main.go <filename>")
 		return
 	}
-
 	filename := os.Args[1]
 
+	// Step 1: Get reader
 	reader, err := Reader.GetReader(filename)
 	if err != nil {
-		fmt.Println("Error reading file:", err)
-		return
+		log.Fatalf("Error getting reader: %v", err)
 	}
 
-	rawRecords, err := reader.Read(filename) // כאן הקריאה
+	rawRecords, err := reader.Read(filename)
 	if err != nil {
-		fmt.Println("Error reading records:", err)
-		return
+		log.Fatalf("Error reading records: %v", err)
 	}
 
-	parsedRecords := []*Model.ParsedRecord{}
-
+	// Step 2: Parse records
+	var parsedRecords []Model.ParsedRecord
 	for _, raw := range rawRecords {
-		p := Parser.ParseRawRecord(raw)
-		if p != nil {
-			parsedRecords = append(parsedRecords, p)
+		if p := Parser.ParseRawRecord(raw); p != nil {
+			log.Printf("Parsed OK: time=%s ip=%s", p.LogTime, p.IP)
+			parsedRecords = append(parsedRecords, *p)
 		}
 	}
 
-	// הגדרת יעד
+	// Step 3: Convert to formatted records using BQFormatter
+	var formatted []interface{}
+	formatter := formatter.BQFormatter{}
+
+	for _, rec := range parsedRecords {
+		formattedRecord, err := formatter.Format(rec)
+		if err != nil {
+			log.Printf("Skipping record due to formatting error: %v", err)
+			continue
+		}
+		formatted = append(formatted, formattedRecord)
+	}
+
+	// Step 4: Init BQ Writer
 	ctx := context.Background()
-	w, err := Writer.NewBQWriter(ctx,
-		"../credentials.json",
-		"platform-hackaton-2025",
-		"My_Try",
-		"loadtool_logs",
-	)
+	writer, err := Writer.NewBQWriter(ctx, "./credentials.json", "platform-hackaton-2025", "My_Try", "loadtool_logs")
 	if err != nil {
-		log.Fatalf("❌ שגיאה בהגדרת יעד BQ: %v", err)
+		log.Fatalf(" Failed to initialize BigQuery writer: %v", err)
 	}
 
-	// דוגמת כתיבה ל-BQ: רק רשומה אחת קבועה
-	record := &Writer.LogRecord{
-		CampaignID:          "abc123",
-		AppID:               "com.kuku",
-		Partner:             "partnerA",
-		MediaSource:         "ms",
-		UnmaskedMediaSource: "ms",
-		AttributionType:     "install",
-		Campaign:            "camp_test",
-		Source:              "sourceA",
-		AdID:                "ad1",
-		AdsetID:             "adset1",
-		AdsetName:           "set name",
-		SiteID:              "site1",
-		Ad:                  "adtext",
-		LtvCountry:          "US",
-		Installs:            15,
-		Impressions:         100,
-		Clicks:              30,
-		Loyals:              3,
-		OrganicInstalls:     1,
-		OrganicImpressions:  5,
-		OrganicClicks:       2,
-		OrganicLoyals:       1,
-		LogTime:             time.Now(),
-	}
-
-	// שליחה ל-BQ (רק הרשומה הבודדת)
-	if err := w.Write([]*Writer.LogRecord{record}); err != nil {
-		log.Fatalf("❌ שגיאה בכתיבה ל-BQ: %v", err)
+	// Step 5: Write to BigQuery
+	if err := writer.Write(formatted); err != nil {
+		log.Fatalf(" Failed to write to BigQuery: %v", err)
 	}
 }
-
-// package main
-
-// import (
-// 	"encoding/json"
-// 	"fmt"
-// 	"time"
-
-// 	"github.com/HadasAmar/analytics-load-tool/Model"
-// 	"github.com/HadasAmar/analytics-load-tool/bq_adapter"
-// )
-
-// func main() {
-// 	entry := Model.LogEntry{
-// 		CampaignID:  "camp123",
-// 		MediaSource: "google",
-// 		LogTime:     time.Now(),
-// 		IP:          "1.2.3.4",
-// 		Installs:    5,
-// 	}
-
-// 	bq, err := bq_adapter.ConvertLogEntryToBQ(entry)
-// 	if err != nil {
-// 		fmt.Println("שגיאה:", err)
-// 		return
-// 	}
-
-// 	// הדפסה כתוצאה
-// 	b, _ := json.MarshalIndent_
-// }

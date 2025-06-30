@@ -4,7 +4,6 @@ import (
 	"encoding/json"
 	"os"
 	"sync"
-
 	"github.com/HadasAmar/analytics-load-tool/Model"
 )
 

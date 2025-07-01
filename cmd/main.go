@@ -4,7 +4,7 @@ import (
 	"fmt"
 	"log"
 
-	"github.com/HadasAmar/analytics-load-tool/Formatter"
+	"github.com/HadasAmar/analytics-load-tool/formatter"
 	"github.com/HadasAmar/analytics-load-tool/Parser"
 	"github.com/HadasAmar/analytics-load-tool/Reader"
 )

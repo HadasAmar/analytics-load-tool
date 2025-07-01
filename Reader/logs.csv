@@ -1,4 +1,4 @@
-timestamp,ip,campaign_id,partner,app_id,unmasked_media_source,media_source,attribution_type,campaign,source,ad_id,adset_id,adset_name,site_id,ad,ltv_country,installs,impressions,clicks,loyals,organic_installs,organic_impressions,organic_clicks,organic_loyals
+log_time,ip,campaign_id,partner,app_id,unmasked_media_source,media_source,attribution_type,campaign,source,ad_id,adset_id,adset_name,site_id,ad,ltv_country,installs,impressions,clicks,loyals,organic_installs,organic_impressions,organic_clicks,organic_loyals
 2022-09-19T07:31:05.655Z,10.10.67.38,campaign123,partnerA,app123,sourceA,sourceB,install,campaignX,sourceY,ad123,adset123,adsetName1,site123,adName1,IL,10,1000,150,5,3,200,30,1
 2022-09-19T07:32:05.655Z,10.10.67.39,campaign456,partnerB,app456,sourceC,sourceD,install,campaignY,sourceZ,ad456,adset456,adsetName2,site456,adName2,US,20,2000,250,10,6,300,40,2
 2022-09-19T07:33:05.655Z,10.10.67.40,campaign789,partnerC,app789,sourceE,sourceF,install,campaignZ,sourceW,ad789,adset789,adsetName3,site789,adName3,GB,30,3000,350,15,9,400,50,3

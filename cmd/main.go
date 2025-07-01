@@ -2,31 +2,42 @@ package main
 
 import (
 	"fmt"
-	"github.com/HadasAmar/analytics-load-tool.git/Reader"
-	"os"
-	"path/filepath"
+	"log"
+
+	"github.com/HadasAmar/analytics-load-tool/Formatter"
+	"github.com/HadasAmar/analytics-load-tool/Parser"
+	"github.com/HadasAmar/analytics-load-tool/Reader"
 )
 
 func main() {
-
-	fmt.Println("Args:", os.Args)
-
-	if len(os.Args) < 2 {
-		fmt.Println("Usage: go run main.go <filename>")
-		return
+	// טוען את הרידר לקובץ הלוג
+	reader, err := Reader.GetReader("druid-demo.log")
+	if err != nil {
+		log.Fatalf("❌ שגיאה באיתור הקורא: %v", err)
 	}
 
-	filename := os.Args[1]
-	ext := filepath.Ext(filename)
+	// קריאת הרשומות מהקובץ
+	records, err := reader.Read("druid-demo.log")
+	if err != nil {
+		log.Fatalf("❌ שגיאה בקריאת קובץ: %v", err)
+	}
 
-	switch ext {
-	case ".json":
-		Reader.ProcessJSONFile(filename)
-	case ".csv":
-		Reader.ProcessCSVFile(filename)
-	case ".log":
-		Reader.ProcessLogFile(filename)
-	default:
-		fmt.Println("Unsupported file type:", ext)
+	count := 0
+	for _, record := range records {
+		parsed := Parser.ParseRawRecord(record)
+		if parsed == nil || record.ParsedQuery == nil {
+			continue
+		}
+
+		// יצירת SQL → עיצוב → צבעים
+		raw := Formatter.BuildSQLQuery(record.ParsedQuery)
+		pretty := Formatter.PrettySQL(raw)
+		colored := Formatter.ColorizeSQL(pretty)
+
+		// הדפסת השאילתה הצבעונית
+		count++
+		fmt.Printf("%s✅ שורה %d:%s\n\n", Formatter.Green, count, Formatter.Reset)
+		fmt.Println(colored)
+		fmt.Println()
 	}
 }

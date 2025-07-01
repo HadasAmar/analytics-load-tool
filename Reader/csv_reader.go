@@ -2,43 +2,52 @@ package Reader
 
 import (
 	"encoding/csv"
-	"fmt"
+	"encoding/json"
 	"os"
 )
 
-func ProcessCSVFile(filename string) error {
+func ReadCSVFile(filename string) ([]RawRecord, error) {
 	file, err := os.Open(filename)
 	if err != nil {
-		fmt.Println("שגיאה בפתיחת הקובץ:", err)
-		return err
+		return nil, err
 	}
 	defer file.Close()
 
 	reader := csv.NewReader(file)
 	records, err := reader.ReadAll()
-	if err != nil {
-		return err
-	}
-
-	if len(records) < 1 {
-		return fmt.Errorf("קובץ ריק")
+	if err != nil || len(records) < 1 {
+		return nil, err
 	}
 
 	headers := records[0]
+	var result []RawRecord
 
-	for i, record := range records[1:] {
-		if len(record) != len(headers) {
-			fmt.Printf("שורה %d באורך שונה מהכותרת\n", i+2)
+	for _, row := range records[1:] {
+		if len(row) != len(headers) {
 			continue
 		}
 
-		row := make(map[string]string)
-		for j, value := range record {
-			row[headers[j]] = value
+		obj := map[string]string{}
+		for i, h := range headers {
+			obj[h] = row[i]
 		}
+		jsonBytes, _ := json.Marshal(obj)
 
-		fmt.Printf("שורה %d: %+v\n", i+2, row)
+		pq, _ := ParseRawQuery(string(jsonBytes))
+		result = append(result, RawRecord{
+			Timestamp:   obj["log_time"],
+			IP:          obj["ip"],
+			RawQuery:    string(jsonBytes),
+			ParsedQuery: pq,
+		})
+
 	}
 
-	return nil
+	return result, nil
+}
+
+type CSVReader struct{}
+
+func (c CSVReader) Read(filename string) ([]RawRecord, error) {
+	return ReadCSVFile(filename)
 }

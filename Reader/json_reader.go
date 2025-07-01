@@ -2,8 +2,8 @@ package Reader
 
 import (
 	"encoding/json"
-	"os"
 	"github.com/HadasAmar/analytics-load-tool/Model"
+	"os"
 )
 
 func ReadJSONFile(filename string) ([]RawRecord, error) {
@@ -25,14 +25,18 @@ func ReadJSONFile(filename string) ([]RawRecord, error) {
 	var result []RawRecord
 	for _, row := range input {
 		queryBytes, _ := json.Marshal(row.Query)
+		pq, _ := ParseRawQuery(string(queryBytes))
 		result = append(result, RawRecord{
-			Timestamp: row.Timestamp,
-			IP:        row.IP,
-			RawQuery:  string(queryBytes),
+			Timestamp:   row.Timestamp,
+			IP:          row.IP,
+			RawQuery:    string(queryBytes),
+			ParsedQuery: pq,
 		})
+
 	}
 	return result, nil
 }
+
 type JSONReader struct{}
 
 func (j JSONReader) Read(filename string) ([]RawRecord, error) {

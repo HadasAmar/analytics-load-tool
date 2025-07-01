@@ -2,8 +2,8 @@ package Reader
 
 import (
 	"encoding/csv"
-	"os"
 	"encoding/json"
+	"os"
 )
 
 func ReadCSVFile(filename string) ([]RawRecord, error) {
@@ -33,18 +33,21 @@ func ReadCSVFile(filename string) ([]RawRecord, error) {
 		}
 		jsonBytes, _ := json.Marshal(obj)
 
+		pq, _ := ParseRawQuery(string(jsonBytes))
 		result = append(result, RawRecord{
-			Timestamp: obj["log_time"],
-			IP:        obj["ip"],
-			RawQuery:  string(jsonBytes),
+			Timestamp:   obj["log_time"],
+			IP:          obj["ip"],
+			RawQuery:    string(jsonBytes),
+			ParsedQuery: pq,
 		})
+
 	}
 
 	return result, nil
 }
+
 type CSVReader struct{}
 
 func (c CSVReader) Read(filename string) ([]RawRecord, error) {
 	return ReadCSVFile(filename)
 }
-

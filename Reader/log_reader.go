@@ -4,16 +4,19 @@ import (
 	"bufio"
 	"os"
 	"strings"
+
+	"github.com/HadasAmar/analytics-load-tool/Model"
 )
 
-func ReadLogFile(filename string) ([]RawRecord, error) {
+// ReadLogFile קוראת קובץ לוג ומחזירה רשימת ParsedRecord
+func ReadLogFile(filename string) ([]*Model.ParsedRecord, error) {
 	file, err := os.Open(filename)
 	if err != nil {
 		return nil, err
 	}
 	defer file.Close()
 
-	var result []RawRecord
+	var result []*Model.ParsedRecord
 	scanner := bufio.NewScanner(file)
 
 	for scanner.Scan() {
@@ -22,21 +25,19 @@ func ReadLogFile(filename string) ([]RawRecord, error) {
 		if len(parts) < 3 {
 			continue
 		}
-		pq, _ := ParseRawQuery(parts[2])
-		result = append(result, RawRecord{
-			Timestamp:   parts[0],
-			IP:          parts[1],
-			RawQuery:    parts[2],
-			ParsedQuery: pq,
-		})
 
+		record := ParseRawRecord(parts[0], parts[1], parts[2])
+		if record != nil && record.Parsed != nil {
+			result = append(result, record)
+		}
 	}
 
 	return result, scanner.Err()
 }
 
+// LogReader מממש את FileReader למקרה .log
 type LogReader struct{}
 
-func (l LogReader) Read(filename string) ([]RawRecord, error) {
+func (l LogReader) Read(filename string) ([]*Model.ParsedRecord, error) {
 	return ReadLogFile(filename)
 }

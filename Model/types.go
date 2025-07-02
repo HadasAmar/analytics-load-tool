@@ -6,7 +6,9 @@ type ParsedRecord struct {
 	LogTime time.Time
 	IP      string
 	Query   string
+	Parsed  *ParsedQuery
 }
+
 
 type DimensionSpec struct {
 	Dimension  string `json:"dimension"`

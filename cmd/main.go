@@ -4,8 +4,7 @@ import (
 	"fmt"
 	"log"
 
-	"github.com/HadasAmar/analytics-load-tool/formatter"
-	"github.com/HadasAmar/analytics-load-tool/Parser"
+	formatter  "github.com/HadasAmar/analytics-load-tool/formatter"
 	"github.com/HadasAmar/analytics-load-tool/Reader"
 )
 
@@ -24,19 +23,18 @@ func main() {
 
 	count := 0
 	for _, record := range records {
-		parsed := Parser.ParseRawRecord(record)
-		if parsed == nil || record.ParsedQuery == nil {
+		if record == nil || record.Parsed == nil {
 			continue
 		}
 
 		// יצירת SQL → עיצוב → צבעים
-		raw := Formatter.BuildSQLQuery(record.ParsedQuery)
-		pretty := Formatter.PrettySQL(raw)
-		colored := Formatter.ColorizeSQL(pretty)
+		raw := formatter.BuildSQLQuery(record.Parsed)
+		pretty := formatter.PrettySQL(raw)
+		colored := formatter.ColorizeSQL(pretty)
 
 		// הדפסת השאילתה הצבעונית
 		count++
-		fmt.Printf("%s✅ שורה %d:%s\n\n", Formatter.Green, count, Formatter.Reset)
+		fmt.Printf("%s✅ שורה %d:%s\n\n", formatter.Green, count, formatter.Reset)
 		fmt.Println(colored)
 		fmt.Println()
 	}

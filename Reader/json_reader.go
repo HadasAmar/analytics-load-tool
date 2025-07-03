@@ -3,10 +3,12 @@ package Reader
 import (
 	"encoding/json"
 	"os"
+
 	"github.com/HadasAmar/analytics-load-tool/Model"
 )
 
-func ReadJSONFile(filename string) ([]RawRecord, error) {
+// ReadJSONFile קוראת קובץ JSON ומחזירה []*ParsedRecord
+func ReadJSONFile(filename string) ([]*Model.ParsedRecord, error) {
 	data, err := os.ReadFile(filename)
 	if err != nil {
 		return nil, err
@@ -22,19 +24,21 @@ func ReadJSONFile(filename string) ([]RawRecord, error) {
 		return nil, err
 	}
 
-	var result []RawRecord
+	var result []*Model.ParsedRecord
 	for _, row := range input {
 		queryBytes, _ := json.Marshal(row.Query)
-		result = append(result, RawRecord{
-			Timestamp: row.Timestamp,
-			IP:        row.IP,
-			RawQuery:  string(queryBytes),
-		})
+		record := ParseRawRecord(row.Timestamp, row.IP, string(queryBytes))
+		if record != nil {
+			result = append(result, record)
+		}
 	}
+
 	return result, nil
 }
+
+// JSONReader מממש את FileReader
 type JSONReader struct{}
 
-func (j JSONReader) Read(filename string) ([]RawRecord, error) {
+func (j JSONReader) Read(filename string) ([]*Model.ParsedRecord, error) {
 	return ReadJSONFile(filename)
 }

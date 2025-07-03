@@ -1,4 +1,4 @@
-package formatter
+package Formatter
 
 import "github.com/HadasAmar/analytics-load-tool/Model"
 

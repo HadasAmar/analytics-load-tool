@@ -5,11 +5,6 @@ import (
 	"path/filepath"
 )
 
-type RawRecord struct {
-	Timestamp string
-	IP        string
-	RawQuery  string
-}
 
 func GetReader(filename string) (FileReader, error) {
 	ext := filepath.Ext(filename)

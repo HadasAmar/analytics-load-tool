@@ -1,89 +1,73 @@
 package main
 
 import (
-	"context"
 	"fmt"
 	"log"
-
-	"github.com/HadasAmar/analytics-load-tool/Model"
-
-	//"github.com/HadasAmar/analytics-load-tool/Output"
-	"github.com/HadasAmar/analytics-load-tool/Parser"
-	"github.com/HadasAmar/analytics-load-tool/Reader"
-
-	"github.com/HadasAmar/analytics-load-tool/Writer"
 	"os"
 
-	//"time"
-	"github.com/HadasAmar/analytics-load-tool/configuration"
-	"github.com/HadasAmar/analytics-load-tool/formatter"
-
+	"github.com/HadasAmar/analytics-load-tool/Reader"
+	Simulator "github.com/HadasAmar/analytics-load-tool/Simulator"
+	formatter "github.com/HadasAmar/analytics-load-tool/formatter"
 )
 
 func main() {
-		if len(os.Args) < 2 {
-		fmt.Println("Usage: go run main.go <filename>")
-		return
-	}
-	filename := os.Args[1]
-
-	// Step 1: Get reader
-	reader, err := Reader.GetReader(filename)
+	// load the reader for the log file
+	reader, err := Reader.GetReader("druid-demo.log")
 	if err != nil {
-		log.Fatalf("Error getting reader: %v", err)
+		log.Fatalf("❌ שגיאה באיתור הקורא: %v", err)
 	}
 
-	rawRecords, err := reader.Read(filename)
+	// reads the log file and parses it into records
+	records, err := reader.Read("druid-demo.log")
 	if err != nil {
-		log.Fatalf("Error reading records: %v", err)
+		log.Fatalf("❌ שגיאה בקריאת קובץ: %v", err)
 	}
 
-	// Step 2: Parse records
-	var parsedRecords []Model.ParsedRecord
-	for _, raw := range rawRecords {
-		if p := Parser.ParseRawRecord(raw); p != nil {
-			log.Printf("Parsed OK: time=%s ip=%s", p.LogTime, p.IP)
-			parsedRecords = append(parsedRecords, *p)
-		}
+	events, err := Simulator.CalculateReplayEvents(records)
+	if err != nil {
+		log.Fatalf("❌ simulator error: %v", err)
 	}
 
-	// Step 3: Convert to formatted records using BQFormatter
-	var formatted []interface{}
-	formatter := formatter.BQFormatter{}
+	// print the delay and timestamp of each event
+	for _, e := range events {
+		fmt.Printf("at: %v, wait: %v\n", e.Timestamp, e.Delay)
+	}
 
-	for _, rec := range parsedRecords {
-		formattedRecord, err := formatter.Format(rec)
-		if err != nil {
-			log.Printf("Skipping record due to formatting error: %v", err)
+	count := 0
+	for _, record := range records {
+		if record == nil || record.Parsed == nil {
 			continue
 		}
-		formatted = append(formatted, formattedRecord)
-	}
 
-	// Step 4: Init BQ Writer
-	ctx := context.Background()
-	writer, err := Writer.NewBQWriter(ctx, "./credentials.json", "platform-hackaton-2025", "My_Try", "loadtool_logs")
-	if err != nil {
-		log.Fatalf(" Failed to initialize BigQuery writer: %v", err)
-	}
+		// יצירת SQL → עיצוב → צבעים
+		raw := formatter.BuildSQLQuery(record.Parsed)
+		pretty := formatter.PrettySQL(raw)
+		colored := formatter.ColorizeSQL(pretty)
 
-	// Step 5: Write to BigQuery
-	if err := writer.Write(formatted); err != nil {
-		log.Fatalf(" Failed to write to BigQuery: %v", err)
-	}
+		// הדפסת השאילתה הצבעונית
+		count++
+		fmt.Printf("%s✅ שורה %d:%s\n\n", formatter.Green, count, formatter.Reset)
+		fmt.Println(colored)
+		fmt.Println()
 
-	//configuration
-	// Create the client
-	client, err := configuration.NewConsulClient("localhost:8500")
-	if err != nil {
-		log.Fatalf("Error creating Consul client: %v", err)
-	}
+		// save the formatted SQL to a file
+		f, err := os.Create("output.sql")
+		if err != nil {
+			log.Fatal(err)
+		}
+		defer f.Close()
 
-	// Calling get_values
-	speedFactor, err := configuration.GetSpeedFactor(client)
-	if err != nil {
-		fmt.Println("Did not find value in Consul")
-	} else {
-		fmt.Printf("The value from Consul: %s\n", speedFactor)
+		for _, record := range records {
+			if record == nil || record.Parsed == nil {
+				continue
+			}
+			raw := formatter.BuildSQLQuery(record.Parsed)
+			pretty := formatter.PrettySQL(raw)
+			_, err := f.WriteString(pretty + "\n\n")
+			if err != nil {
+				log.Fatal(err)
+			}
+		}
+
 	}
 }

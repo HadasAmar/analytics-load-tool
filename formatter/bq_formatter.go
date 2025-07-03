@@ -1,4 +1,4 @@
-package formatter
+package Formatter
 
 import (
 	"encoding/json"
@@ -10,30 +10,30 @@ import (
 )
 
 type BQLogRecord struct {
-	LogTime              time.Time `json:"log_time"`
-	IP                   string    `json:"ip"`
-	CampaignID           string    `json:"campaign_id"`
-	Partner              string    `json:"partner"`
-	AppID                string    `json:"app_id"`
-	UnmaskedMediaSource  string    `json:"unmasked_media_source"`
-	MediaSource          string    `json:"media_source"`
-	AttributionType      string    `json:"attribution_type"`
-	Campaign             string    `json:"campaign"`
-	Source               string    `json:"source"`
-	AdID                 string    `json:"ad_id"`
-	AdsetID              string    `json:"adset_id"`
-	AdsetName            string    `json:"adset_name"`
-	SiteID               string    `json:"site_id"`
-	Ad                   string    `json:"ad"`
-	LtvCountry           string    `json:"ltv_country"`
-	Installs             int       `json:"installs"`
-	Impressions          int       `json:"impressions"`
-	Clicks               int       `json:"clicks"`
-	Loyals               int       `json:"loyals"`
-	OrganicInstalls      int       `json:"organic_installs"`
-	OrganicImpressions   int       `json:"organic_impressions"`
-	OrganicClicks        int       `json:"organic_clicks"`
-	OrganicLoyals        int       `json:"organic_loyals"`
+	LogTime             time.Time `json:"log_time"`
+	IP                  string    `json:"ip"`
+	CampaignID          string    `json:"campaign_id"`
+	Partner             string    `json:"partner"`
+	AppID               string    `json:"app_id"`
+	UnmaskedMediaSource string    `json:"unmasked_media_source"`
+	MediaSource         string    `json:"media_source"`
+	AttributionType     string    `json:"attribution_type"`
+	Campaign            string    `json:"campaign"`
+	Source              string    `json:"source"`
+	AdID                string    `json:"ad_id"`
+	AdsetID             string    `json:"adset_id"`
+	AdsetName           string    `json:"adset_name"`
+	SiteID              string    `json:"site_id"`
+	Ad                  string    `json:"ad"`
+	LtvCountry          string    `json:"ltv_country"`
+	Installs            int       `json:"installs"`
+	Impressions         int       `json:"impressions"`
+	Clicks              int       `json:"clicks"`
+	Loyals              int       `json:"loyals"`
+	OrganicInstalls     int       `json:"organic_installs"`
+	OrganicImpressions  int       `json:"organic_impressions"`
+	OrganicClicks       int       `json:"organic_clicks"`
+	OrganicLoyals       int       `json:"organic_loyals"`
 }
 
 type BQFormatter struct{}

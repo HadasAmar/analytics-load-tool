@@ -4,6 +4,7 @@ import (
 	"sort"
 	"time"
 	"github.com/HadasAmar/analytics-load-tool/Model"
+	"fmt"
 )
 
 // ReplayEvent represents an event in the simulation.
@@ -42,6 +43,22 @@ func CalculateReplayEvents(records []*Model.ParsedRecord) ([]ReplayEvent, error)
 		}
 		result = append(result, replay)
 	}
-
 	return result, nil
+}
+
+// SimulateReplay reads records and plays them with real latency (in milliseconds)
+func SimulateReplay(records []*Model.ParsedRecord) error {
+	events, err := CalculateReplayEvents(records)
+	if err != nil {
+		return err
+	}
+
+	for i, event := range events {
+		if i > 0 {
+			fmt.Printf("wait %v ...\n", event.Delay.Milliseconds())
+			time.Sleep(event.Delay)
+		}
+		fmt.Printf("Sends an event on time %v with IP %s\n", event.Timestamp, event.Payload.IP)
+	}
+	return nil
 }

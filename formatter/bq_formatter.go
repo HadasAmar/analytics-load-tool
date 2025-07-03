@@ -34,7 +34,6 @@ type BQLogRecord struct {
 	OrganicImpressions  int       `json:"organic_impressions"`
 	OrganicClicks       int       `json:"organic_clicks"`
 	OrganicLoyals       int       `json:"organic_loyals"`
-
 }
 
 type BQFormatter struct{}

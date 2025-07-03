@@ -16,29 +16,21 @@ func main() {
 	logFile := os.Args[1]
 
 	// load the reader for the log file
-
 	reader, err := Reader.GetReader(logFile)
 	if err != nil {
-		log.Fatalf("❌ שגיאה באיתור הקורא: %v", err)
+		log.Fatalf("❌ error finding the reader: %v", err)
 	}
 
 	// reads the log file and parses it into records
-
 	records, err := reader.Read(logFile)
 	if err != nil {
-		log.Fatalf("❌ שגיאה בקריאת קובץ: %v", err)
+		log.Fatalf("❌ error reading the reader: %v", err)
 	}
 
 	errSimulateReplay := Simulator.SimulateReplay(records)
 	if errSimulateReplay != nil {
 		log.Fatalf("error simulating: %v", errSimulateReplay)
 	}
-
-	// // הדפסת השאילתה הצבעונית
-	// count++
-	// fmt.Printf("%s✅ שורה %d:%s\n\n", formatter.Green, count, formatter.Reset)
-	// fmt.Println(colored)
-	// fmt.Println()
 
 	f, err := os.Create("output.sql")
 	if err != nil {

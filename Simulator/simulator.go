@@ -47,6 +47,15 @@ func CalculateReplayEvents(records []*Model.ParsedRecord) ([]ReplayEvent, error)
 	return result, nil
 }
 
+// function that calculates the delay based on a speedup factor.
+func ReplaySpeedup(delay time.Duration, speedup float64) time.Duration {
+	if speedup <= 0 {
+		speedup = 1.0
+	}
+	adjusted := time.Duration(float64(delay) / speedup)
+	return adjusted
+}
+
 // SimulateReplay reads records and plays them with real latency (in milliseconds)
 func SimulateReplay(records []*Model.ParsedRecord) error {
 	events, err := CalculateReplayEvents(records)

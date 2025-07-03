@@ -11,14 +11,19 @@ import (
 )
 
 func main() {
+	if len(os.Args) < 2 {
+		log.Fatal("יש להעביר נתיב לקובץ לוג כפרמטר")
+	}
+	logFile := os.Args[1]
+
 	// load the reader for the log file
-	reader, err := Reader.GetReader("druid-demo.log")
+	reader, err := Reader.GetReader(logFile)
 	if err != nil {
 		log.Fatalf("❌ שגיאה באיתור הקורא: %v", err)
 	}
 
 	// reads the log file and parses it into records
-	records, err := reader.Read("druid-demo.log")
+	records, err := reader.Read(logFile)
 	if err != nil {
 		log.Fatalf("❌ שגיאה בקריאת קובץ: %v", err)
 	}
@@ -26,6 +31,10 @@ func main() {
 	events, err := Simulator.CalculateReplayEvents(records)
 	if err != nil {
 		log.Fatalf("❌ simulator error: %v", err)
+	}
+	errSimulateReplay := Simulator.SimulateReplay(records)
+	if errSimulateReplay != nil {
+		log.Fatalf("error simulating: %v", errSimulateReplay)
 	}
 
 	// print the delay and timestamp of each event

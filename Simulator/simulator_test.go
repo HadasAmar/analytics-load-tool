@@ -52,3 +52,36 @@ func parseTime(t *testing.T, s string) time.Time {
 	}
 	return tt
 }
+
+func TestReplaySpeedup(t *testing.T) {
+	cases := []struct {
+		delay   time.Duration
+		speedup float64
+		expect  time.Duration
+	}{
+		{10 * time.Second, 2.0, 5 * time.Second},
+		{5 * time.Second, 0.0, 5 * time.Second}, // speedup=0 אמור להפוך ל-1
+		{5 * time.Second, 1.0, 5 * time.Second},
+		{1000 * time.Millisecond, 4.0, 250 * time.Millisecond},
+	}
+
+	for _, c := range cases {
+		got := ReplaySpeedup(c.delay, c.speedup)
+		if got != c.expect {
+			t.Errorf("ReplaySpeedup(%v, %v) = %v; want %v", c.delay, c.speedup, got, c.expect)
+		}
+	}
+}
+
+func TestSendEvent(t *testing.T) {
+	e := ReplayEvent{
+		Timestamp: time.Now(),
+		Payload:   nil,
+		Delay:     0,
+	}
+
+	err := SendEvent(e)
+	if err != nil {
+		t.Errorf("SendEvent failed: %v", err)
+	}
+}

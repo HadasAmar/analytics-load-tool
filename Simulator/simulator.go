@@ -1,10 +1,11 @@
 package Simulator
 
 import (
+	"fmt"
 	"sort"
 	"time"
+
 	"github.com/HadasAmar/analytics-load-tool/Model"
-	"fmt"
 )
 
 // ReplayEvent represents an event in the simulation.
@@ -55,8 +56,12 @@ func SimulateReplay(records []*Model.ParsedRecord) error {
 
 	for i, event := range events {
 		if i > 0 {
-			fmt.Printf("wait %v ...\n", event.Delay.Milliseconds())
-			time.Sleep(event.Delay)
+
+			// Calculate the adjusted delay based on the speedup factor
+			adjusted := ReplaySpeedup(event.Delay, 0.2)
+			fmt.Printf("original %v wait %v...\n", event.Delay.Milliseconds(), adjusted.Milliseconds())
+			time.Sleep(adjusted)
+
 		}
 		fmt.Printf("Sends an event on time %v with IP %s\n", event.Timestamp, event.Payload.IP)
 	}

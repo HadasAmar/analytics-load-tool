@@ -1,7 +1,6 @@
 package main
 
 import (
-	"fmt"
 	"log"
 	"os"
 
@@ -30,30 +29,10 @@ func main() {
 		log.Fatalf("❌ שגיאה בקריאת קובץ: %v", err)
 	}
 
-	events, err := Simulator.CalculateReplayEvents(records)
-	if err != nil {
-		log.Fatalf("❌ simulator error: %v", err)
-	}
 	errSimulateReplay := Simulator.SimulateReplay(records)
 	if errSimulateReplay != nil {
 		log.Fatalf("error simulating: %v", errSimulateReplay)
 	}
-
-	// print the delay and timestamp of each event
-	for _, e := range events {
-		fmt.Printf("at: %v, wait: %v\n", e.Timestamp, e.Delay)
-	}
-
-	// count := 0
-	// for _, record := range records {
-	// 	if record == nil || record.Parsed == nil {
-	// 		continue
-	// 	}
-
-	// // יצירת SQL → עיצוב → צבעים
-	// raw := formatter.BuildSQLQuery(record.Parsed)
-	// pretty := formatter.PrettySQL(raw)
-	// colored := formatter.ColorizeSQL(pretty)
 
 	// // הדפסת השאילתה הצבעונית
 	// count++
@@ -73,12 +52,12 @@ func main() {
 			continue
 		}
 
+		// creates SQL → formats it → writes to file
 		raw := formatter.BuildSQLQuery(record.Parsed)
 		pretty := formatter.PrettySQL(raw)
 
 		count++
 
-		// כותב לקובץ בלבד
 		_, err := f.WriteString(pretty + "\n\n")
 		if err != nil {
 			log.Fatal(err)

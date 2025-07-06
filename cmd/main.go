@@ -7,12 +7,13 @@ import (
 
 	"github.com/HadasAmar/analytics-load-tool/Reader"
 	Simulator "github.com/HadasAmar/analytics-load-tool/Simulator"
+	"github.com/HadasAmar/analytics-load-tool/configuration"
 	formatter "github.com/HadasAmar/analytics-load-tool/formatter"
 )
 
 func main() {
 	if len(os.Args) < 2 {
-		log.Fatal("יש להעביר נתיב לקובץ לוג כפרמטר")
+		log.Fatal("Pass a path to the log file as a parameter")
 	}
 	logFile := os.Args[1]
 
@@ -30,7 +31,7 @@ func main() {
 
 	events, err := Simulator.CalculateReplayEvents(records)
 	if err != nil {
-		log.Fatalf("❌ simulator error: %v", err)
+		log.Fatalf("simulator error: %v", err)
 	}
 	errSimulateReplay := Simulator.SimulateReplay(records)
 	if errSimulateReplay != nil {
@@ -78,5 +79,9 @@ func main() {
 			}
 		}
 
+	}
+	err := configuration.InitGlobalConsul()
+	if err != nil {
+		panic(err)
 	}
 }

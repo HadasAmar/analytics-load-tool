@@ -1,6 +1,7 @@
 package main
 
 import (
+	"fmt"
 	"log"
 	"os"
 
@@ -28,9 +29,27 @@ func main() {
 		log.Fatalf("❌ error reading the reader: %v", err)
 	}
 
-	errSimulateReplay := Simulator.SimulateReplay(records)
-	if errSimulateReplay != nil {
-		log.Fatalf("error simulating: %v", errSimulateReplay)
+	commands := make(chan string)
+
+	// start the simulator in a goroutine
+	go func() {
+		errSimulateReplay := Simulator.SimulateReplayWithControl(records, commands)
+		if errSimulateReplay != nil {
+			log.Fatalf("error simulating: %v", errSimulateReplay)
+		}
+	}()
+
+	// control loop to handle user commands
+	for {
+		var input string
+		fmt.Println("enter command [pause/resume/stop]:")
+		fmt.Scanln(&input)
+		if input == "pause" || input == "resume" || input == "stop" {
+			commands <- input
+		}
+		if input == "stop" {
+			break
+		}
 	}
 
 	f, err := os.Create("output.sql")
@@ -57,9 +76,9 @@ func main() {
 		}
 	}
 
-	}
-	err := configuration.InitGlobalConsul()
+	err = configuration.InitGlobalConsul()
 	if err != nil {
 		panic(err)
 	}
+
 }

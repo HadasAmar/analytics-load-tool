@@ -57,22 +57,52 @@ func ReplaySpeedup(delay time.Duration, speedup float64) time.Duration {
 }
 
 // SimulateReplay reads records and plays them with real latency (in milliseconds)
-func SimulateReplay(records []*Model.ParsedRecord) error {
+func SimulateReplayWithControl(records []*Model.ParsedRecord, commands chan string) error {
 	events, err := CalculateReplayEvents(records)
 	if err != nil {
 		return err
 	}
 
+	paused := false
+
 	for i, event := range events {
 		if i > 0 {
-
-			// Calculate the adjusted delay based on the speedup factor
 			adjusted := ReplaySpeedup(event.Delay, 0.2)
 			fmt.Printf("original %v wait %v...\n", event.Delay.Milliseconds(), adjusted.Milliseconds())
-			time.Sleep(adjusted)
-
 		}
-		fmt.Printf("Sends an event on time %v with IP %s\n", event.Timestamp, event.Payload.IP)
+
+		//wait for the delay of the event
+		timer := time.NewTimer(ReplaySpeedup(event.Delay, 0.2))
+
+		for {
+			select {
+			case cmd := <-commands:
+				if cmd == "pause" {
+					fmt.Println("⏸ simulation paused. Type 'resume' to continue or 'stop' to end.")
+					paused = true
+				}
+				if cmd == "resume" {
+					fmt.Println("▶️ continuing simulation")
+					paused = false
+				}
+				if cmd == "stop" {
+					fmt.Println("🛑 simulation stopped")
+					return nil
+				}
+			case <-timer.C:
+				if !paused {
+					fmt.Printf("Sends an event on time %v with IP %s\n", event.Timestamp, event.Payload.IP)
+					break // breaks the loop and continues to the next event
+				} else {
+					// wait for the timer to reset if paused
+					time.Sleep(500 * time.Millisecond)
+					timer.Reset(0) // reset the timer to avoid blocking
+				}
+			}
+			if !paused {
+				break
+			}
+		}
 	}
 	return nil
 }

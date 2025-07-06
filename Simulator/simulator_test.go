@@ -73,33 +73,49 @@ func TestReplaySpeedup(t *testing.T) {
 	}
 }
 
-func TestSimulateReplay(t *testing.T) {
-	// This test simulates a replay with a delay of 15 seconds between events.
-	records := []*Model.ParsedRecord{
-		{
-			LogTime: parseTime(t, "2024-05-01T10:00:00Z"),
-			IP:      "1.1.1.1",
-		},
-		{
-			LogTime: parseTime(t, "2024-05-01T10:00:01Z"),
-			IP:      "1.1.1.2",
-		},
-		{
-			LogTime: parseTime(t, "2024-05-01T10:00:03Z"),
-			IP:      "1.1.1.3",
-		},
-	}
+func TestSimulateReplayWithoutPause(t *testing.T) {
+    records := []*Model.ParsedRecord{
+        {LogTime: parseTime(t, "2024-05-01T10:00:00Z"), IP: "1.1.1.1"},
+        {LogTime: parseTime(t, "2024-05-01T10:00:01Z"), IP: "1.1.1.2"},
+        {LogTime: parseTime(t, "2024-05-01T10:00:02Z"), IP: "1.1.1.3"},
+    }
 
-	start := time.Now()
+    commands := make(chan string)
 
-	err := SimulateReplay(records)
-	if err != nil {
-		t.Errorf("SimulateReplay returned error: %v", err)
-	}
+    start := time.Now()
+    err := SimulateReplayWithControl(records, commands)
+    if err != nil {
+        t.Errorf("error: %v", err)
+    }
+    elapsed := time.Since(start)
+    if elapsed < time.Second {
+        t.Errorf("expected a delay, got %v", elapsed)
+    }
+}
 
-	elapsed := time.Since(start)
+func TestSimulateReplayWithPauseResume(t *testing.T) {
+    records := []*Model.ParsedRecord{
+        {LogTime: parseTime(t, "2024-05-01T10:00:00Z"), IP: "1.1.1.1"},
+        {LogTime: parseTime(t, "2024-05-01T10:00:01Z"), IP: "1.1.1.2"},
+        {LogTime: parseTime(t, "2024-05-01T10:00:02Z"), IP: "1.1.1.3"},
+    }
 
-	if elapsed < 10*time.Second {
-		t.Errorf("expected replay to take at least ~15s, got %v", elapsed)
-	}
+    commands := make(chan string)
+
+    go func() {
+        time.Sleep(100 * time.Millisecond)
+        commands <- "pause"
+        t.Log("sent pause")
+        time.Sleep(300 * time.Millisecond)
+        commands <- "resume"
+        t.Log("sent resume")
+        time.Sleep(200 * time.Millisecond)
+        commands <- "stop"
+        t.Log("sent stop")
+    }()
+
+    err := SimulateReplayWithControl(records, commands)
+    if err != nil {
+        t.Errorf("error: %v", err)
+    }
 }

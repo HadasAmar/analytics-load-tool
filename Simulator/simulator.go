@@ -1,10 +1,11 @@
 package Simulator
 
 import (
+	"fmt"
 	"sort"
 	"time"
+
 	"github.com/HadasAmar/analytics-load-tool/Model"
-	"fmt"
 )
 
 // ReplayEvent represents an event in the simulation.
@@ -46,6 +47,15 @@ func CalculateReplayEvents(records []*Model.ParsedRecord) ([]ReplayEvent, error)
 	return result, nil
 }
 
+// function that calculates the delay based on a speedup factor.
+func ReplaySpeedup(delay time.Duration, speedup float64) time.Duration {
+	if speedup <= 0 {
+		speedup = 1.0
+	}
+	adjusted := time.Duration(float64(delay) / speedup)
+	return adjusted
+}
+
 // SimulateReplay reads records and plays them with real latency (in milliseconds)
 func SimulateReplay(records []*Model.ParsedRecord) error {
 	events, err := CalculateReplayEvents(records)
@@ -55,8 +65,12 @@ func SimulateReplay(records []*Model.ParsedRecord) error {
 
 	for i, event := range events {
 		if i > 0 {
-			fmt.Printf("wait %v ...\n", event.Delay.Milliseconds())
-			time.Sleep(event.Delay)
+
+			// Calculate the adjusted delay based on the speedup factor
+			adjusted := ReplaySpeedup(event.Delay, 0.2)
+			fmt.Printf("original %v wait %v...\n", event.Delay.Milliseconds(), adjusted.Milliseconds())
+			time.Sleep(adjusted)
+
 		}
 		fmt.Printf("Sends an event on time %v with IP %s\n", event.Timestamp, event.Payload.IP)
 	}

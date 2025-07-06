@@ -73,15 +73,33 @@ func TestReplaySpeedup(t *testing.T) {
 	}
 }
 
-func TestSendEvent(t *testing.T) {
-	e := ReplayEvent{
-		Timestamp: time.Now(),
-		Payload:   nil,
-		Delay:     0,
+func TestSimulateReplay(t *testing.T) {
+	// This test simulates a replay with a delay of 15 seconds between events.
+	records := []*Model.ParsedRecord{
+		{
+			LogTime: parseTime(t, "2024-05-01T10:00:00Z"),
+			IP:      "1.1.1.1",
+		},
+		{
+			LogTime: parseTime(t, "2024-05-01T10:00:01Z"),
+			IP:      "1.1.1.2",
+		},
+		{
+			LogTime: parseTime(t, "2024-05-01T10:00:03Z"),
+			IP:      "1.1.1.3",
+		},
 	}
 
-	err := SendEvent(e)
+	start := time.Now()
+
+	err := SimulateReplay(records)
 	if err != nil {
-		t.Errorf("SendEvent failed: %v", err)
+		t.Errorf("SimulateReplay returned error: %v", err)
+	}
+
+	elapsed := time.Since(start)
+
+	if elapsed < 10*time.Second {
+		t.Errorf("expected replay to take at least ~15s, got %v", elapsed)
 	}
 }

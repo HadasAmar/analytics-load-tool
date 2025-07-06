@@ -1,7 +1,6 @@
 package main
 
 import (
-	"fmt"
 	"log"
 	"os"
 
@@ -18,49 +17,21 @@ func main() {
 	logFile := os.Args[1]
 
 	// load the reader for the log file
-
 	reader, err := Reader.GetReader(logFile)
 	if err != nil {
-		log.Fatalf("❌ שגיאה באיתור הקורא: %v", err)
+		log.Fatalf("❌ error finding the reader: %v", err)
 	}
 
 	// reads the log file and parses it into records
-
 	records, err := reader.Read(logFile)
 	if err != nil {
-		log.Fatalf("❌ שגיאה בקריאת קובץ: %v", err)
+		log.Fatalf("❌ error reading the reader: %v", err)
 	}
 
-	events, err := Simulator.CalculateReplayEvents(records)
-	if err != nil {
-		log.Fatalf("simulator error: %v", err)
-	}
 	errSimulateReplay := Simulator.SimulateReplay(records)
 	if errSimulateReplay != nil {
 		log.Fatalf("error simulating: %v", errSimulateReplay)
 	}
-
-	// print the delay and timestamp of each event
-	for _, e := range events {
-		fmt.Printf("at: %v, wait: %v\n", e.Timestamp, e.Delay)
-	}
-
-	// count := 0
-	// for _, record := range records {
-	// 	if record == nil || record.Parsed == nil {
-	// 		continue
-	// 	}
-
-	// // יצירת SQL → עיצוב → צבעים
-	// raw := formatter.BuildSQLQuery(record.Parsed)
-	// pretty := formatter.PrettySQL(raw)
-	// colored := formatter.ColorizeSQL(pretty)
-
-	// // הדפסת השאילתה הצבעונית
-	// count++
-	// fmt.Printf("%s✅ שורה %d:%s\n\n", formatter.Green, count, formatter.Reset)
-	// fmt.Println(colored)
-	// fmt.Println()
 
 	f, err := os.Create("output.sql")
 	if err != nil {
@@ -74,12 +45,12 @@ func main() {
 			continue
 		}
 
+		// creates SQL → formats it → writes to file
 		raw := formatter.BuildSQLQuery(record.Parsed)
 		pretty := formatter.PrettySQL(raw)
 
 		count++
 
-		// כותב לקובץ בלבד
 		_, err := f.WriteString(pretty + "\n\n")
 		if err != nil {
 			log.Fatal(err)

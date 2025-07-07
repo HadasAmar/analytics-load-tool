@@ -5,10 +5,10 @@ import (
 	"log"
 	"os"
 
+	formatter "github.com/HadasAmar/analytics-load-tool/Formatter"
 	"github.com/HadasAmar/analytics-load-tool/Reader"
 	Simulator "github.com/HadasAmar/analytics-load-tool/Simulator"
 	"github.com/HadasAmar/analytics-load-tool/configuration"
-	formatter "github.com/HadasAmar/analytics-load-tool/formatter"
 )
 
 func main() {

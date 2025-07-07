@@ -2,47 +2,66 @@ package Writer
 
 import (
 	"context"
-	"errors"
+	"fmt"
 	"log"
+	"time"
 
 	"cloud.google.com/go/bigquery"
 	"google.golang.org/api/option"
+
+	"github.com/HadasAmar/analytics-load-tool/Formatter"
+	"github.com/HadasAmar/analytics-load-tool/Model"
 )
 
-type BQWriter struct {
-	client    *bigquery.Client
-	datasetID string
-	tableID   string
+// Runner אחראי על הרצת שאילתות מול BigQuery
+type Runner struct {
+	BQClient *bigquery.Client
 }
 
-func NewBQWriter(ctx context.Context, credentialsFile, projectID, datasetID, tableID string) (*BQWriter, error) {
-	log.Println("🔌 Connecting to BigQuery...")
-	client, err := bigquery.NewClient(ctx, projectID, option.WithCredentialsFile(credentialsFile))
+// NewRunner יוצר ראנר עם client לפי credentials
+func NewRunner(ctx context.Context, projectID string, credsPath string) (*Runner, error) {
+	client, err := bigquery.NewClient(ctx, projectID, option.WithCredentialsFile(credsPath))
 	if err != nil {
-		log.Printf(" Failed to create BigQuery client: %v\n", err)
-		return nil, err
+		log.Printf("❌ Failed to create BigQuery client: %v", err)
+		return nil, fmt.Errorf("failed to create BQ client: %w", err)
 	}
-
-	log.Println(" Successfully connected to BigQuery.")
-	return &BQWriter{
-		client:    client,
-		datasetID: datasetID,
-		tableID:   tableID,
-	}, nil
+	log.Println("✅ BigQuery client created successfully")
+	return &Runner{BQClient: client}, nil
 }
 
-// Write receives a slice of structs (as []interface{}) and writes to BigQuery
-func (w *BQWriter) Write(data []interface{}) error {
-	if len(data) == 0 {
-		return errors.New("no valid records to write")
-	}
-	inserter := w.client.Dataset(w.datasetID).Table(w.tableID).Inserter()
+// RunQuery מריץ ParsedQuery מול BigQuery ומחזיר משך זמן ותגובה
+func (r *Runner) RunQuery(ctx context.Context, parsed *Model.ParsedQuery) (time.Duration, string, error) {
+	queryStr := Formatter.BuildSQLQuery(parsed)
 
-	log.Printf("Writing %d records to BigQuery...\n", len(data))
-	if err := inserter.Put(context.Background(), data); err != nil {
-		return err
+	log.Println("📥 Preparing to run query:")
+	fmt.Println(Formatter.PrettySQL(queryStr)) // הדפסת השאילתה באופן קריא
+
+	query := r.BQClient.Query(queryStr)
+	start := time.Now()
+
+	// ניסיון להריץ את השאילתה
+	job, err := query.Run(ctx)
+	if err != nil {
+		log.Printf("❌ [Run Failure] Could not start query. Error: %v", err)
+		return 0, "", fmt.Errorf("failed to run query: %w", err)
 	}
 
-	log.Printf(" Successfully wrote %d records to BigQuery.\n", len(data))
-	return nil
+	// ממתין לסיום הריצה
+	status, err := job.Wait(ctx)
+	duration := time.Since(start)
+
+	if err != nil {
+		log.Printf("❌ [Wait Failure] Failed while waiting for job to finish. Error: %v", err)
+		return duration, "", fmt.Errorf("job wait failed: %w", err)
+	}
+
+	// בודק אם הייתה שגיאת ביצוע מה-BQ
+	if status.Err() != nil {
+		log.Printf("❌ [Execution Failure] Query failed in BigQuery. JobID: %s | Error: %v", job.ID(), status.Err())
+		return duration, "", fmt.Errorf("job execution error: %w", status.Err())
+	}
+
+	// הצלחה מלאה
+	log.Printf("✅ [Success] Query succeeded in %s | JobID: %s", duration, job.ID())
+	return duration, job.ID(), nil
 }

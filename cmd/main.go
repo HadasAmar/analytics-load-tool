@@ -7,7 +7,6 @@ import (
 	"os"
 
 	formatter "github.com/HadasAmar/analytics-load-tool/Formatter"
-	"github.com/HadasAmar/analytics-load-tool/Model"
 	"github.com/HadasAmar/analytics-load-tool/Reader"
 	"github.com/HadasAmar/analytics-load-tool/Runner"
 	Simulator "github.com/HadasAmar/analytics-load-tool/Simulator"
@@ -19,7 +18,7 @@ func main() {
 		log.Fatal("Pass a path to the log file as a parameter")
 	}
 	logFile := os.Args[1]
-
+	//until we add the consul configuration
 	// load the reader for the log file
 	reader, err := Reader.GetReader(logFile)
 	if err != nil {
@@ -54,7 +53,7 @@ func main() {
 			break
 		}
 	}
-
+	//only to check
 	// יצירת קובץ SQL
 	f, err := os.Create("output.sql")
 	if err != nil {
@@ -74,25 +73,9 @@ func main() {
 	if err != nil {
 		log.Fatalf("❌ Failed to create Runner: %v", err)
 	}
-
-	// דוגמה של ParsedQuery – חשוב להתאים לשמות אמיתיים!
-	query := &Model.ParsedQuery{
-		TableName:     "My_Try.loadtool_logs",
-		SelectFields:  []string{"date", "country", "media_source"},
-		Aggregations:  []string{"SUM(revenue) AS total_revenue", "COUNT(*) AS total_events"},
-		GroupByFields: []string{"date", "country", "media_source"},
-		Limit:         intPtr(100),
-	}
-
-	// הרצה בפועל
-	duration, jobID, err := runner.RunQuery(ctx, query)
-	if err != nil {
-		log.Fatalf("❌ Query failed: %v", err)
-	}
-	log.Printf("🏁 Finished successfully | Duration: %s | Job ID: %s", duration, jobID)
-
-	// כתיבה לקובץ SQL
+	// write to SQL file
 	count := 0
+	raw := ""
 	for _, record := range records {
 		if record == nil || record.Parsed == nil {
 			continue
@@ -108,6 +91,22 @@ func main() {
 			log.Fatal(err)
 		}
 	}
+
+	// // דוגמה של ParsedQuery – חשוב להתאים לשמות אמיתיים!
+	// query := &Model.ParsedQuery{
+	// 	TableName:     "My_Try.loadtool_logs",
+	// 	SelectFields:  []string{"date", "country", "media_source"},
+	// 	Aggregations:  []string{"SUM(revenue) AS total_revenue", "COUNT(*) AS total_events"},
+	// 	GroupByFields: []string{"date", "country", "media_source"},
+	// 	Limit:         intPtr(100),
+	// }
+
+	// הרצה בפועל
+	duration, jobID, err := runner.RunRawQuery(ctx, raw)
+	if err != nil {
+		log.Fatalf("❌ Query failed: %v", err)
+	}
+	log.Printf("🏁 Finished successfully | Duration: %s | Job ID: %s", duration, jobID)
 
 	// אתחול קונפיגורציית קונסול
 	err = configuration.InitGlobalConsul()

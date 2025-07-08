@@ -67,12 +67,12 @@ func SimulateReplayWithControl(records []*Model.ParsedRecord, commands chan stri
 
 	for i, event := range events {
 		if i > 0 {
-			adjusted := ReplaySpeedup(event.Delay, 0.2)
+			adjusted := ReplaySpeedup(event.Delay, 2)
 			fmt.Printf("original %v wait %v...\n", event.Delay.Milliseconds(), adjusted.Milliseconds())
 		}
 
 		//wait for the delay of the event
-		timer := time.NewTimer(ReplaySpeedup(event.Delay, 0.2))
+		timer := time.NewTimer(ReplaySpeedup(event.Delay, 0.5))
 
 		for {
 			select {

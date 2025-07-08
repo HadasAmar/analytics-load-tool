@@ -1,16 +1,9 @@
 package Runner
 
-// type DestinationWriter interface {
-//  Write(data interface{}) error
-// }
 import (
-	"context"
-	"time"
-
-	"github.com/HadasAmar/analytics-load-tool/Model"
+    "context"
+    "time"
 )
-
 type QueryRunner interface {
-	RunQuery(ctx context.Context, parsed *Model.ParsedQuery) (time.Duration, string, error)
-	RunRawQuery(ctx context.Context, sql string) (time.Duration, string, error)
+    RunRawQuery(ctx context.Context, sql string) (time.Duration, string, error)
 }

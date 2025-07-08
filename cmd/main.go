@@ -92,15 +92,6 @@ func main() {
 		}
 	}
 
-	// // דוגמה של ParsedQuery – חשוב להתאים לשמות אמיתיים!
-	// query := &Model.ParsedQuery{
-	// 	TableName:     "My_Try.loadtool_logs",
-	// 	SelectFields:  []string{"date", "country", "media_source"},
-	// 	Aggregations:  []string{"SUM(revenue) AS total_revenue", "COUNT(*) AS total_events"},
-	// 	GroupByFields: []string{"date", "country", "media_source"},
-	// 	Limit:         intPtr(100),
-	// }
-
 	// הרצה בפועל
 	duration, jobID, err := runner.RunRawQuery(ctx, raw)
 	if err != nil {

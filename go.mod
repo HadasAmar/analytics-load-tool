@@ -6,9 +6,6 @@ require (
 	cloud.google.com/go/bigquery v1.69.0
 	github.com/hashicorp/consul/api v1.32.1
 	google.golang.org/api v0.232.0
-)
-
-require (
 	cloud.google.com/go v0.121.0 // indirect
 	cloud.google.com/go/auth v0.16.1 // indirect
 	cloud.google.com/go/auth/oauth2adapt v0.2.8 // indirect
@@ -64,10 +61,4 @@ require (
 	google.golang.org/genproto/googleapis/rpc v0.0.0-20250505200425-f936aa4a68b2 // indirect
 	google.golang.org/grpc v1.72.0 // indirect
 	google.golang.org/protobuf v1.36.6 // indirect
-<<<<<<< HEAD
-
 )
-=======
-)
-
->>>>>>> cadcbe4741f97e84b373f90fba1cef6bd05c390e

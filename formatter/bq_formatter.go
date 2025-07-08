@@ -1,6 +1,6 @@
 package Formatter
 
-import ( 
+import (
 	"encoding/json"
 	"errors"
 	"fmt"

@@ -1,16 +1,15 @@
 package main
 
 import (
+	"context"
 	"fmt"
 	"log"
 	"os"
 
 	formatter "github.com/HadasAmar/analytics-load-tool/Formatter"
-
 	"github.com/HadasAmar/analytics-load-tool/Model"
-	"github.com/HadasAmar/analytics-load-tool/Writer"
-
 	"github.com/HadasAmar/analytics-load-tool/Reader"
+	"github.com/HadasAmar/analytics-load-tool/Runner"
 	Simulator "github.com/HadasAmar/analytics-load-tool/Simulator"
 	"github.com/HadasAmar/analytics-load-tool/configuration"
 )
@@ -56,13 +55,14 @@ func main() {
 		}
 	}
 
+	// יצירת קובץ SQL
 	f, err := os.Create("output.sql")
 	if err != nil {
 		log.Fatal(err)
 	}
 	defer f.Close()
 
-
+	// יצירת context
 	ctx := context.Background()
 
 	// 🧾 פרטים שצריך למלא לפי הסביבה שלך
@@ -70,7 +70,7 @@ func main() {
 	credsPath := "./credentials.json" // קובץ JSON שנמצא בתיקיית הפרויקט
 
 	// יצירת Runner עם credentials
-	runner, err := Writer.NewRunner(ctx, projectID, credsPath)
+	runner, err := Runner.NewBigQueryRunner(ctx, projectID, credsPath)
 	if err != nil {
 		log.Fatalf("❌ Failed to create Runner: %v", err)
 	}
@@ -82,26 +82,22 @@ func main() {
 		Aggregations:  []string{"SUM(revenue) AS total_revenue", "COUNT(*) AS total_events"},
 		GroupByFields: []string{"date", "country", "media_source"},
 		Limit:         intPtr(100),
-    
+	}
+
 	// הרצה בפועל
 	duration, jobID, err := runner.RunQuery(ctx, query)
 	if err != nil {
 		log.Fatalf("❌ Query failed: %v", err)
 	}
-
 	log.Printf("🏁 Finished successfully | Duration: %s | Job ID: %s", duration, jobID)
-}
 
-func intPtr(i int) *int {
-	return &i
-
+	// כתיבה לקובץ SQL
 	count := 0
 	for _, record := range records {
 		if record == nil || record.Parsed == nil {
 			continue
 		}
 
-		// creates SQL → formats it → writes to file
 		raw := formatter.BuildSQLQuery(record.Parsed)
 		pretty := formatter.PrettySQL(raw)
 
@@ -112,10 +108,15 @@ func intPtr(i int) *int {
 			log.Fatal(err)
 		}
 	}
+
+	// אתחול קונפיגורציית קונסול
 	err = configuration.InitGlobalConsul()
 	if err != nil {
 		panic(err)
 	}
-
 }
+
+// עזר להמרת מספר לפוינטר
+func intPtr(i int) *int {
+	return &i
 }

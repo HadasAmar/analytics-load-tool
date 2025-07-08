@@ -5,12 +5,11 @@ import (
 	"encoding/json"
 	"os"
 	"strings"
-	
 
 	"github.com/HadasAmar/analytics-load-tool/Model"
 )
 
-// ReadCSVFile קוראת קובץ CSV ומחזירה רשימת ParsedRecord
+// ReadCSVFile reads a CSV file and returns a list of ParsedRecord
 func ReadCSVFile(filename string) ([]*Model.ParsedRecord, error) {
 	file, err := os.Open(filename)
 	if err != nil {
@@ -37,14 +36,14 @@ func ReadCSVFile(filename string) ([]*Model.ParsedRecord, error) {
 			obj[h] = row[i]
 		}
 
-		// הפיכת map ל־JSON
+		// Convert map to JSON
 		jsonBytes, _ := json.Marshal(obj)
 
-		// חילוץ שדות IP ו־Timestamp (אם קיימים)
+		// Extract IP and Timestamp fields (if exist)
 		ip := strings.TrimSpace(obj["ip"])
 		ts := obj["log_time"]
 
-		// יצירת ParsedRecord דרך ParseRawRecord
+		// Create ParsedRecord via ParseRawRecord
 		record := ParseRawRecord(ts, ip, string(jsonBytes))
 		if record != nil {
 			result = append(result, record)
@@ -54,7 +53,7 @@ func ReadCSVFile(filename string) ([]*Model.ParsedRecord, error) {
 	return result, nil
 }
 
-// CSVReader מממש את הממשק FileReader
+// CSVReader implements the FileReader interface
 type CSVReader struct{}
 
 func (c CSVReader) Read(filename string) ([]*Model.ParsedRecord, error) {

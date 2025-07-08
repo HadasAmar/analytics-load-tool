@@ -19,18 +19,13 @@ func main() {
 	}
 	logFile := os.Args[1]
 
-	// load the reader for the log file
-	reader, err := Reader.GetReader(logFile)
-	if err != nil {
-		log.Fatalf("❌ error finding the reader: %v", err)
-	}
 
 	// reads the log file and parses it into records
-	records, err := reader.Read(logFile)
-	if err != nil {
-		log.Fatalf("❌ error reading the reader: %v", err)
-	}
-
+	
+    records, err := Reader.ReadRecordsFromConsul(logFile, configuration.GlobalConsulClient)
+    if err != nil {
+	   log.Fatalf("❌ Failed to read records: %v", err)
+    } 
 	commands := make(chan string)
 
 	// start the simulator in a goroutine

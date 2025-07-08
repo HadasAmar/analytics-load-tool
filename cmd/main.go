@@ -106,7 +106,3 @@ func main() {
 	}
 }
 
-// עזר להמרת מספר לפוינטר
-func intPtr(i int) *int {
-	return &i
-}

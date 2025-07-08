@@ -64,5 +64,10 @@ require (
 	google.golang.org/genproto/googleapis/rpc v0.0.0-20250505200425-f936aa4a68b2 // indirect
 	google.golang.org/grpc v1.72.0 // indirect
 	google.golang.org/protobuf v1.36.6 // indirect
+<<<<<<< HEAD
+
+)
+=======
 )
 
+>>>>>>> cadcbe4741f97e84b373f90fba1cef6bd05c390e

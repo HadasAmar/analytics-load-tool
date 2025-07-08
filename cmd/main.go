@@ -1,16 +1,18 @@
 package main
 
 import (
-	"context"
+	"fmt"
 	"log"
 	"os"
 
+	formatter "github.com/HadasAmar/analytics-load-tool/Formatter"
+
 	"github.com/HadasAmar/analytics-load-tool/Model"
 	"github.com/HadasAmar/analytics-load-tool/Writer"
+
 	"github.com/HadasAmar/analytics-load-tool/Reader"
 	Simulator "github.com/HadasAmar/analytics-load-tool/Simulator"
 	"github.com/HadasAmar/analytics-load-tool/configuration"
-	formatter "github.com/HadasAmar/analytics-load-tool/formatter"
 )
 
 func main() {
@@ -60,7 +62,7 @@ func main() {
 	}
 	defer f.Close()
 
-  
+
 	ctx := context.Background()
 
 	// 🧾 פרטים שצריך למלא לפי הסביבה שלך
@@ -92,6 +94,7 @@ func main() {
 
 func intPtr(i int) *int {
 	return &i
+
 	count := 0
 	for _, record := range records {
 		if record == nil || record.Parsed == nil {
@@ -109,11 +112,10 @@ func intPtr(i int) *int {
 			log.Fatal(err)
 		}
 	}
-
-  //global config
 	err = configuration.InitGlobalConsul()
 	if err != nil {
 		panic(err)
 	}
 
+}
 }

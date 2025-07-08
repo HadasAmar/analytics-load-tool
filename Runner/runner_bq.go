@@ -7,10 +7,9 @@ import (
 	"time"
 
 	"cloud.google.com/go/bigquery"
-	"google.golang.org/api/option"
-
 	"github.com/HadasAmar/analytics-load-tool/Formatter"
 	"github.com/HadasAmar/analytics-load-tool/Model"
+	"google.golang.org/api/option"
 )
 
 type BigQueryRunner struct {

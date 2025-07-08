@@ -2,22 +2,22 @@ package main
 
 import (
 	"context"
+	"fmt"
 	"log"
 	"os"
 
-	"github.com/HadasAmar/analytics-load-tool/Model"
-	"github.com/HadasAmar/analytics-load-tool/Writer"
+	formatter "github.com/HadasAmar/analytics-load-tool/Formatter"
 	"github.com/HadasAmar/analytics-load-tool/Reader"
+	"github.com/HadasAmar/analytics-load-tool/Runner"
 	Simulator "github.com/HadasAmar/analytics-load-tool/Simulator"
 	"github.com/HadasAmar/analytics-load-tool/configuration"
-	formatter "github.com/HadasAmar/analytics-load-tool/formatter"
 )
 
 func main() {
 	if len(os.Args) < 2 {
 		log.Fatal("Pass a path to the log file as a parameter")
 	}
-	logFile := os.Args[1]
+	logFile :=
 
 
 	// reads the log file and parses it into records
@@ -48,14 +48,15 @@ func main() {
 			break
 		}
 	}
-
+	//only to check
+	// יצירת קובץ SQL
 	f, err := os.Create("output.sql")
 	if err != nil {
 		log.Fatal(err)
 	}
 	defer f.Close()
 
-  
+	// יצירת context
 	ctx := context.Background()
 
 	// 🧾 פרטים שצריך למלא לפי הסביבה שלך
@@ -63,37 +64,18 @@ func main() {
 	credsPath := "./credentials.json" // קובץ JSON שנמצא בתיקיית הפרויקט
 
 	// יצירת Runner עם credentials
-	runner, err := Writer.NewRunner(ctx, projectID, credsPath)
+	runner, err := Runner.NewBigQueryRunner(ctx, projectID, credsPath)
 	if err != nil {
 		log.Fatalf("❌ Failed to create Runner: %v", err)
 	}
-
-	// דוגמה של ParsedQuery – חשוב להתאים לשמות אמיתיים!
-	query := &Model.ParsedQuery{
-		TableName:     "My_Try.loadtool_logs",
-		SelectFields:  []string{"date", "country", "media_source"},
-		Aggregations:  []string{"SUM(revenue) AS total_revenue", "COUNT(*) AS total_events"},
-		GroupByFields: []string{"date", "country", "media_source"},
-		Limit:         intPtr(100),
-    
-	// הרצה בפועל
-	duration, jobID, err := runner.RunQuery(ctx, query)
-	if err != nil {
-		log.Fatalf("❌ Query failed: %v", err)
-	}
-
-	log.Printf("🏁 Finished successfully | Duration: %s | Job ID: %s", duration, jobID)
-}
-
-func intPtr(i int) *int {
-	return &i
+	// write to SQL file
 	count := 0
+	raw := ""
 	for _, record := range records {
 		if record == nil || record.Parsed == nil {
 			continue
 		}
 
-		// creates SQL → formats it → writes to file
 		raw := formatter.BuildSQLQuery(record.Parsed)
 		pretty := formatter.PrettySQL(raw)
 
@@ -105,10 +87,17 @@ func intPtr(i int) *int {
 		}
 	}
 
-  //global config
+	// הרצה בפועל
+	duration, jobID, err := runner.RunRawQuery(ctx, raw)
+	if err != nil {
+		log.Fatalf("❌ Query failed: %v", err)
+	}
+	log.Printf("🏁 Finished successfully | Duration: %s | Job ID: %s", duration, jobID)
+
+	// אתחול קונפיגורציית קונסול
 	err = configuration.InitGlobalConsul()
 	if err != nil {
 		panic(err)
 	}
-
 }
+

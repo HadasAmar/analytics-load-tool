@@ -8,7 +8,7 @@ import (
 	"github.com/HadasAmar/analytics-load-tool/Model"
 )
 
-// ReadLogFile קוראת קובץ לוג ומחזירה רשימת ParsedRecord
+// ReadLogFile reads a .log file and returns a list of ParsedRecord
 func ReadLogFile(filename string) ([]*Model.ParsedRecord, error) {
 	file, err := os.Open(filename)
 	if err != nil {
@@ -35,7 +35,7 @@ func ReadLogFile(filename string) ([]*Model.ParsedRecord, error) {
 	return result, scanner.Err()
 }
 
-// LogReader מממש את FileReader למקרה .log
+// LogReader implements the FileReader interface for .log files
 type LogReader struct{}
 
 func (l LogReader) Read(filename string) ([]*Model.ParsedRecord, error) {

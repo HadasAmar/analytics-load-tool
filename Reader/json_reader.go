@@ -7,7 +7,7 @@ import (
 	"github.com/HadasAmar/analytics-load-tool/Model"
 )
 
-// ReadJSONFile קוראת קובץ JSON ומחזירה []*ParsedRecord
+// ReadJSONFile reads a JSON file and returns []*ParsedRecord
 func ReadJSONFile(filename string) ([]*Model.ParsedRecord, error) {
 	data, err := os.ReadFile(filename)
 	if err != nil {
@@ -36,7 +36,7 @@ func ReadJSONFile(filename string) ([]*Model.ParsedRecord, error) {
 	return result, nil
 }
 
-// JSONReader מממש את FileReader
+// JSONReader implements the FileReader interface
 type JSONReader struct{}
 
 func (j JSONReader) Read(filename string) ([]*Model.ParsedRecord, error) {

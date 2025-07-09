@@ -6,7 +6,7 @@ import (
 	"log"
 	"os"
 
-	formatter "github.com/HadasAmar/analytics-load-tool/Formatter"
+	formatter "github.com/HadasAmar/analytics-load-tool/formatter"
 	"github.com/HadasAmar/analytics-load-tool/Reader"
 	"github.com/HadasAmar/analytics-load-tool/Runner"
 	Simulator "github.com/HadasAmar/analytics-load-tool/Simulator"
@@ -19,13 +19,13 @@ func main() {
 	}
 	logFile := os.Args[1]
 
-	// 🟢 אתחול קונסול – מוקדם!
+	// Optional: initialize Consul (if needed)
 	err := configuration.InitGlobalConsul()
 	if err != nil {
 		log.Fatalf("❌ Failed to initialize Consul: %v", err)
 	}
 
-	// ✅ עכשיו מותר לקרוא עם GlobalConsulClient
+	// Read records from file instead of Consul
 	records, err := Reader.ReadLogFile(logFile)
 	if err != nil {
 		log.Fatalf("❌ Failed to read records: %v", err)
@@ -33,18 +33,18 @@ func main() {
 
 	commands := make(chan string)
 
-	// start the simulator in a goroutine
+	// Run the simulator with timestamp-based grouping and parallelism
 	go func() {
-		errSimulateReplay := Simulator.SimulateReplayWithControl(records, commands)
-		if errSimulateReplay != nil {
-			log.Fatalf("error simulating: %v", errSimulateReplay)
+		errSimulate := Simulator.SimulateReplayInGroups(records, commands, 2.0)
+		if errSimulate != nil {
+			log.Fatalf("❌ Simulation failed: %v", errSimulate)
 		}
 	}()
 
-	// control loop to handle user commands
+	// Command loop: pause/resume/stop
 	for {
 		var input string
-		fmt.Println("enter command [pause/resume/stop]:")
+		fmt.Println("Enter command [pause/resume/stop]:")
 		fmt.Scanln(&input)
 		if input == "pause" || input == "resume" || input == "stop" {
 			commands <- input
@@ -54,46 +54,44 @@ func main() {
 		}
 	}
 
-	// יצירת קובץ SQL
+	// Optional: generate output SQL file
 	f, err := os.Create("output.sql")
 	if err != nil {
 		log.Fatal(err)
 	}
 	defer f.Close()
 
-	// יצירת context
 	ctx := context.Background()
 
-	// פרטים שצריך למלא לפי הסביבה שלך
 	projectID := "platform-hackaton-2025"
 	credsPath := "./credentials.json"
 
-	// יצירת Runner עם credentials
 	runner, err := Runner.NewBigQueryRunner(ctx, projectID, credsPath)
 	if err != nil {
 		log.Fatalf("❌ Failed to create Runner: %v", err)
 	}
 
-	// כתיבה לקובץ SQL
+	var sqlFormatter formatter.Formatter = &formatter.SQLFormatter{}
 	count := 0
 	raw := ""
 	for _, record := range records {
 		if record == nil || record.Parsed == nil {
 			continue
 		}
-
-		raw = formatter.BuildSQLQuery(record.Parsed)
+result, err := sqlFormatter.Format(record.Parsed)
+		if err != nil {
+			log.Printf("⚠️ Format error: %v", err)
+			continue
+		}
+		raw, _ = result.(string)
 		pretty := formatter.PrettySQL(raw)
-
 		count++
-
-		_, err := f.WriteString(pretty + "\n\n")
+		_, err = f.WriteString(pretty + "\n\n")
 		if err != nil {
 			log.Fatal(err)
 		}
 	}
 
-	// הרצה בפועל
 	duration, jobID, err := runner.RunRawQuery(ctx, raw)
 	if err != nil {
 		log.Fatalf("❌ Query failed: %v", err)

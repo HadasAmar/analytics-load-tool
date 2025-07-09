@@ -9,12 +9,11 @@ import (
 
 type SQLFormatter struct{}
 
-// Format implements the Formatter interface, returning a SQL string from ParsedQuery
 func (f *SQLFormatter) Format(rec *Model.ParsedQuery) (FormattedRecord, error) {
 	return BuildSQLQuery(rec), nil
 }
 
-// BuildSQLQuery generates a full SQL query string from a parsed query struct.
+// BuildSQLQuery builds a BigQuery-compatible SQL query
 func BuildSQLQuery(pq *Model.ParsedQuery) string {
 	if pq == nil {
 		return ""
@@ -30,9 +29,10 @@ func BuildSQLQuery(pq *Model.ParsedQuery) string {
 		}
 	}
 	for _, agg := range pq.Aggregations {
-		if _, exists := selectSet[agg]; !exists {
-			selectSet[agg] = struct{}{}
-			selectClause = append(selectClause, agg)
+		converted := convertDruidFuncToSQL(agg)
+		if _, exists := selectSet[converted]; !exists {
+			selectSet[converted] = struct{}{}
+			selectClause = append(selectClause, converted)
 		}
 	}
 	for _, p := range pq.PostAggregations {
@@ -41,6 +41,7 @@ func BuildSQLQuery(pq *Model.ParsedQuery) string {
 			expr = p.FieldName
 		}
 		if expr != "" {
+			expr = convertDruidFuncToSQL(expr)
 			formatted := fmt.Sprintf("%s AS %s", expr, p.Name)
 			if _, exists := selectSet[formatted]; !exists {
 				selectSet[formatted] = struct{}{}
@@ -72,7 +73,7 @@ func BuildSQLQuery(pq *Model.ParsedQuery) string {
 
 	if pq.Having != nil {
 		if having := HavingToSQL(pq.Having); having != "" {
-			query += fmt.Sprintf(" HAVING %s", having)
+			query += fmt.Sprintf(" HAVING %s", convertDruidFuncToSQL(having))
 		}
 	}
 
@@ -98,4 +99,21 @@ func BuildSQLQuery(pq *Model.ParsedQuery) string {
 	}
 
 	return query
+}
+
+// convertDruidFuncToSQL converts known Druid aggregation functions to BigQuery equivalents
+func convertDruidFuncToSQL(expr string) string {
+	replacements := map[string]string{
+		"longSum":    "SUM",
+		"doubleSum":  "SUM",
+		"longMin":    "MIN",
+		"doubleMin":  "MIN",
+		"longMax":    "MAX",
+		"doubleMax":  "MAX",
+		"count":      "COUNT",
+	}
+	for druidFunc, sqlFunc := range replacements {
+		expr = strings.ReplaceAll(expr, druidFunc, sqlFunc)
+	}
+	return expr
 }

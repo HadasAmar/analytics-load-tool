@@ -19,13 +19,12 @@ func main() {
 	}
 	logFile := os.Args[1]
 
-	// Optional: initialize Consul (if needed)
-	err := configuration.InitGlobalConsul()
-	if err != nil {
+	// Initialize configuration (e.g. Consul)
+	if err := configuration.InitGlobalConsul(); err != nil {
 		log.Fatalf("❌ Failed to initialize Consul: %v", err)
 	}
 
-	// Read records from file instead of Consul
+	// Read log file
 	records, err := Reader.ReadLogFile(logFile)
 	if err != nil {
 		log.Fatalf("❌ Failed to read records: %v", err)
@@ -33,15 +32,14 @@ func main() {
 
 	commands := make(chan string)
 
-	// Run the simulator with timestamp-based grouping and parallelism
+	// Run simulation concurrently
 	go func() {
-		errSimulate := Simulator.SimulateReplayInGroups(records, commands, 2.0)
-		if errSimulate != nil {
-			log.Fatalf("❌ Simulation failed: %v", errSimulate)
+		if err := Simulator.SimulateReplayInGroups(records, commands, 2.0); err != nil {
+			log.Fatalf("❌ Simulation failed: %v", err)
 		}
 	}()
 
-	// Command loop: pause/resume/stop
+	// Command input
 	for {
 		var input string
 		fmt.Println("Enter command [pause/resume/stop]:")
@@ -54,7 +52,7 @@ func main() {
 		}
 	}
 
-	// Optional: generate output SQL file
+	// Prepare SQL output
 	f, err := os.Create("output.sql")
 	if err != nil {
 		log.Fatal(err)
@@ -62,7 +60,6 @@ func main() {
 	defer f.Close()
 
 	ctx := context.Background()
-
 	projectID := "platform-hackaton-2025"
 	credsPath := "./credentials.json"
 
@@ -71,27 +68,29 @@ func main() {
 		log.Fatalf("❌ Failed to create Runner: %v", err)
 	}
 
-	var sqlFormatter formatter.Formatter = &formatter.SQLFormatter{}
-	count := 0
-	raw := ""
+	sqlFormatter := &formatter.SQLFormatter{}
+	var raw string
+
 	for _, record := range records {
 		if record == nil || record.Parsed == nil {
 			continue
 		}
-result, err := sqlFormatter.Format(record.Parsed)
+
+		result, err := sqlFormatter.Format(record.Parsed)
 		if err != nil {
 			log.Printf("⚠️ Format error: %v", err)
 			continue
 		}
+
 		raw, _ = result.(string)
 		pretty := formatter.PrettySQL(raw)
-		count++
 		_, err = f.WriteString(pretty + "\n\n")
 		if err != nil {
 			log.Fatal(err)
 		}
 	}
 
+	// Run last generated query
 	duration, jobID, err := runner.RunRawQuery(ctx, raw)
 	if err != nil {
 		log.Fatalf("❌ Query failed: %v", err)

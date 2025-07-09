@@ -17,15 +17,20 @@ func main() {
 	if len(os.Args) < 2 {
 		log.Fatal("Pass a path to the log file as a parameter")
 	}
-	logFile :=
+	logFile := os.Args[1]
 
+	// 🟢 אתחול קונסול – מוקדם!
+	err := configuration.InitGlobalConsul()
+	if err != nil {
+		log.Fatalf("❌ Failed to initialize Consul: %v", err)
+	}
 
-	// reads the log file and parses it into records
-	
-    records, err := Reader.ReadRecordsFromConsul(logFile, configuration.GlobalConsulClient)
-    if err != nil {
-	   log.Fatalf("❌ Failed to read records: %v", err)
-    } 
+	// ✅ עכשיו מותר לקרוא עם GlobalConsulClient
+	records, err := Reader.ReadRecordsFromConsul(logFile, configuration.GlobalConsulClient)
+	if err != nil {
+		log.Fatalf("❌ Failed to read records: %v", err)
+	}
+
 	commands := make(chan string)
 
 	// start the simulator in a goroutine
@@ -48,7 +53,7 @@ func main() {
 			break
 		}
 	}
-	//only to check
+
 	// יצירת קובץ SQL
 	f, err := os.Create("output.sql")
 	if err != nil {
@@ -59,16 +64,17 @@ func main() {
 	// יצירת context
 	ctx := context.Background()
 
-	// 🧾 פרטים שצריך למלא לפי הסביבה שלך
+	// פרטים שצריך למלא לפי הסביבה שלך
 	projectID := "platform-hackaton-2025"
-	credsPath := "./credentials.json" // קובץ JSON שנמצא בתיקיית הפרויקט
+	credsPath := "./credentials.json"
 
 	// יצירת Runner עם credentials
 	runner, err := Runner.NewBigQueryRunner(ctx, projectID, credsPath)
 	if err != nil {
 		log.Fatalf("❌ Failed to create Runner: %v", err)
 	}
-	// write to SQL file
+
+	// כתיבה לקובץ SQL
 	count := 0
 	raw := ""
 	for _, record := range records {
@@ -76,7 +82,7 @@ func main() {
 			continue
 		}
 
-		raw := formatter.BuildSQLQuery(record.Parsed)
+		raw = formatter.BuildSQLQuery(record.Parsed)
 		pretty := formatter.PrettySQL(raw)
 
 		count++
@@ -93,11 +99,4 @@ func main() {
 		log.Fatalf("❌ Query failed: %v", err)
 	}
 	log.Printf("🏁 Finished successfully | Duration: %s | Job ID: %s", duration, jobID)
-
-	// אתחול קונפיגורציית קונסול
-	err = configuration.InitGlobalConsul()
-	if err != nil {
-		panic(err)
-	}
 }
-

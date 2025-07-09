@@ -96,9 +96,9 @@ func BuildSQLQuery(pq *Model.ParsedQuery) string {
 	if len(pq.Intervals) > 0 {
 		query += fmt.Sprintf(" /* intervals: %s */", strings.Join(pq.Intervals, ", "))
 	}
-	if pq.Context != nil && len(pq.Context) > 0 {
-		query += fmt.Sprintf(" /* context: %+v */", pq.Context)
-	}
+	if len(pq.Context) > 0 {
+	query += fmt.Sprintf(" /* context: %+v */", pq.Context)
+}
 
 	return query
 }

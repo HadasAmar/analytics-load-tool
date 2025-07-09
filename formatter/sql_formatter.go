@@ -13,7 +13,7 @@ func (f *SQLFormatter) Format(rec *Model.ParsedQuery) (FormattedRecord, error) {
 	return BuildSQLQuery(rec), nil
 }
 
-// BuildSQLQuery builds a BigQuery-compatible SQL query
+// BuildSQLQuery builds a BigQuery-compatible SQL query from a generic ParsedQuery JSON object
 func BuildSQLQuery(pq *Model.ParsedQuery) string {
 	if pq == nil {
 		return ""
@@ -30,7 +30,7 @@ func BuildSQLQuery(pq *Model.ParsedQuery) string {
 	}
 
 	for _, agg := range pq.Aggregations {
-		converted := convertDruidFuncToSQL(agg)
+		converted := convertFunctionsToBigQuerySQL(agg)
 		if _, exists := selectSet[converted]; !exists {
 			selectSet[converted] = struct{}{}
 			selectClause = append(selectClause, converted)
@@ -43,7 +43,7 @@ func BuildSQLQuery(pq *Model.ParsedQuery) string {
 			expr = p.FieldName
 		}
 		if expr != "" {
-			expr = convertDruidFuncToSQL(expr)
+			expr = convertFunctionsToBigQuerySQL(expr)
 			formatted := fmt.Sprintf("%s AS %s", expr, p.Name)
 			if _, exists := selectSet[formatted]; !exists {
 				selectSet[formatted] = struct{}{}
@@ -75,7 +75,7 @@ func BuildSQLQuery(pq *Model.ParsedQuery) string {
 
 	if pq.Having != nil {
 		if having := HavingToSQL(pq.Having); having != "" {
-			query += fmt.Sprintf(" HAVING %s", convertDruidFuncToSQL(having))
+			query += fmt.Sprintf(" HAVING %s", convertFunctionsToBigQuerySQL(having))
 		}
 	}
 
@@ -103,8 +103,8 @@ func BuildSQLQuery(pq *Model.ParsedQuery) string {
 	return query
 }
 
-// convertDruidFuncToSQL replaces Druid-style functions with BigQuery-compatible ones
-func convertDruidFuncToSQL(expr string) string {
+// convertFunctionsToBigQuerySQL replaces generic function names with BigQuery-compatible equivalents
+func convertFunctionsToBigQuerySQL(expr string) string {
 	replacements := map[string]string{
 		"longSum":     "SUM",
 		"doubleSum":   "SUM",
@@ -116,8 +116,8 @@ func convertDruidFuncToSQL(expr string) string {
 		"count":       "COUNT",
 	}
 
-	for druidFunc, sqlFunc := range replacements {
-		expr = strings.ReplaceAll(expr, druidFunc+"(", sqlFunc+"(")
+	for inputFunc, bqFunc := range replacements {
+		expr = strings.ReplaceAll(expr, inputFunc+"(", bqFunc+"(")
 	}
 	return expr
 }

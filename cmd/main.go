@@ -14,10 +14,12 @@ import (
 )
 
 func main() {
-	if len(os.Args) < 2 {
-		log.Fatal("Pass a path to the log file as a parameter")
+	// ⭐️ שינוי: קלט עם שם טבלה
+	if len(os.Args) < 3 {
+		log.Fatal("Usage: go run ./cmd/main.go <log_file> <table>")
 	}
 	logFile := os.Args[1]
+	overrideTable := os.Args[2] // ← הוספה חדשה: שם טבלה מה-CLI
 
 	// 🟢 אתחול קונסול – מוקדם!
 	err := configuration.InitGlobalConsul()
@@ -61,20 +63,17 @@ func main() {
 	}
 	defer f.Close()
 
-	// יצירת context
 	ctx := context.Background()
 
-	// פרטים שצריך למלא לפי הסביבה שלך
 	projectID := "platform-hackaton-2025"
 	credsPath := "./credentials.json"
-
 	// יצירת Runner עם credentials
 	runner, err := Runner.NewBigQueryRunner(ctx, projectID, credsPath)
 	if err != nil {
 		log.Fatalf("❌ Failed to create Runner: %v", err)
 	}
 
-	// כתיבה לקובץ SQL
+	// כתיבת שאילתות לקובץ
 	count := 0
 	raw := ""
 	for _, record := range records {
@@ -82,18 +81,22 @@ func main() {
 			continue
 		}
 
+		// ⭐️ שינוי חשוב: דריסת שם הטבלה מתוך מה שהמשתמש ביקש
+		if overrideTable != "" {
+			record.Parsed.TableName = overrideTable // ← הוספה חדשה
+		}
+
 		raw = formatter.BuildSQLQuery(record.Parsed)
 		pretty := formatter.PrettySQL(raw)
 
 		count++
-
 		_, err := f.WriteString(pretty + "\n\n")
 		if err != nil {
 			log.Fatal(err)
 		}
 	}
 
-	// הרצה בפועל
+	// שליחה לביגקווארי
 	duration, jobID, err := runner.RunRawQuery(ctx, raw)
 	if err != nil {
 		log.Fatalf("❌ Query failed: %v", err)

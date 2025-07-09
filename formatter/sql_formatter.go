@@ -28,6 +28,7 @@ func BuildSQLQuery(pq *Model.ParsedQuery) string {
 			selectClause = append(selectClause, field)
 		}
 	}
+
 	for _, agg := range pq.Aggregations {
 		converted := convertDruidFuncToSQL(agg)
 		if _, exists := selectSet[converted]; !exists {
@@ -35,6 +36,7 @@ func BuildSQLQuery(pq *Model.ParsedQuery) string {
 			selectClause = append(selectClause, converted)
 		}
 	}
+
 	for _, p := range pq.PostAggregations {
 		expr := p.Expression
 		if expr == "" {
@@ -101,19 +103,21 @@ func BuildSQLQuery(pq *Model.ParsedQuery) string {
 	return query
 }
 
-// convertDruidFuncToSQL converts known Druid aggregation functions to BigQuery equivalents
+// convertDruidFuncToSQL replaces Druid-style functions with BigQuery-compatible ones
 func convertDruidFuncToSQL(expr string) string {
 	replacements := map[string]string{
-		"longSum":    "SUM",
-		"doubleSum":  "SUM",
-		"longMin":    "MIN",
-		"doubleMin":  "MIN",
-		"longMax":    "MAX",
-		"doubleMax":  "MAX",
-		"count":      "COUNT",
+		"longSum":     "SUM",
+		"doubleSum":   "SUM",
+		"longMin":     "MIN",
+		"doubleMin":   "MIN",
+		"longMax":     "MAX",
+		"doubleMax":   "MAX",
+		"hyperUnique": "APPROX_COUNT_DISTINCT",
+		"count":       "COUNT",
 	}
+
 	for druidFunc, sqlFunc := range replacements {
-		expr = strings.ReplaceAll(expr, druidFunc, sqlFunc)
+		expr = strings.ReplaceAll(expr, druidFunc+"(", sqlFunc+"(")
 	}
 	return expr
 }

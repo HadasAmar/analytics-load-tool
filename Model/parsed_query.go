@@ -1,22 +1,22 @@
 package Model
 
 type ParsedQuery struct {
-	SelectFields     []string          // שדות SELECT
+	SelectFields     []string          // SELECT fields
 	TableName        string            // FROM
 	GroupByFields    []string          // GROUP BY
-	Aggregations     []string          // אגרגציות פשוטות
-	PostAggregations []PostAggregation // אגרגציות מורכבות/חישוביות
-	Filter           *FilterNode       // תנאי WHERE
-	Having           *HavingClause     // תנאי HAVING
-	Limit            *int              // הגבלת שורות
-	Granularity      string            // גרנולריות (לרוב all/day)
-	Intervals        []string          // טווחי זמן
-	Ordering         []string          // סדר מיון
-	Descending       bool              // האם מיון יורד
-	Context          map[string]any    // קונפיגורציית הקשר
-	VirtualColumns   []VirtualColumn   // עמודות מחושבות
-	QueryType        string            // סוג השאילתה (groupBy, topN, etc)
-	RawJSON          string            // השאילתה המקורית (לשחזור/לוגים)
+	Aggregations     []string          // Simple aggregations
+	PostAggregations []PostAggregation // Complex/computed aggregations
+	Filter           *FilterNode       // WHERE clause
+	Having           *HavingClause     // HAVING clause
+	Limit            *int              // Row limit
+	Granularity      string            // Granularity (usually "all" or "day")
+	Intervals        []string          // Time intervals
+	Ordering         []string          // Sorting order
+	Descending       bool              // Whether sorting is descending
+	Context          map[string]any    // Contextual configuration
+	VirtualColumns   []VirtualColumn   // Computed columns
+	QueryType        string            // Query type (e.g., groupBy, topN)
+	RawJSON          string            // Original query (for logging/debugging)
 }
 
 type HavingClause struct {

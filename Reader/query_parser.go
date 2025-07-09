@@ -8,14 +8,14 @@ import (
 	"github.com/HadasAmar/analytics-load-tool/Model"
 )
 
-// ParseRawRecord מחזירה רשומה מלאה: כולל IP, זמן, RawQuery ו־ParsedQuery
+// ParseRawRecord returns a complete record: including IP, timestamp, raw query, and ParsedQuery
 func ParseRawRecord(timestamp, ip, raw string) *Model.ParsedRecord {
 	cleanIP := strings.TrimSpace(ip)
 	if cleanIP == "" || raw == "" {
 		return nil
 	}
 
-	// המרת זמן
+	// Parse timestamp
 	t, err := time.Parse(time.RFC3339, timestamp)
 	if err != nil {
 		t = time.Time{}
@@ -31,7 +31,7 @@ func ParseRawRecord(timestamp, ip, raw string) *Model.ParsedRecord {
 		Context: make(map[string]any),
 	}
 
-	// כל ההיגיון של פירוק ה־query נשאר זהה לחלוטין:
+	// The logic for parsing the query remains unchanged:
 
 	// TableName
 	if ds, ok := query["dataSource"].(map[string]interface{}); ok {
@@ -40,7 +40,7 @@ func ParseRawRecord(timestamp, ip, raw string) *Model.ParsedRecord {
 		}
 	}
 
-	// Dimensions (כולל outputName)
+	// Dimensions (including outputName)
 	if dims, ok := query["dimensions"].([]interface{}); ok {
 		for _, d := range dims {
 			if dmap, ok := d.(map[string]interface{}); ok {
@@ -74,7 +74,7 @@ func ParseRawRecord(timestamp, ip, raw string) *Model.ParsedRecord {
 		}
 	}
 
-	// PostAggregations (מורחב)
+	// PostAggregations
 	if posts, ok := query["postAggregations"].([]interface{}); ok {
 		for _, p := range posts {
 			if pmap, ok := p.(map[string]interface{}); ok {
@@ -181,7 +181,7 @@ func ParseRawRecord(timestamp, ip, raw string) *Model.ParsedRecord {
 		}
 	}
 
-	// מחזירים רשומת לוג מלאה
+	// Return full parsed log record
 	return &Model.ParsedRecord{
 		LogTime: t,
 		IP:      cleanIP,

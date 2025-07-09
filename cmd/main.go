@@ -17,20 +17,15 @@ func main() {
 	if len(os.Args) < 2 {
 		log.Fatal("Pass a path to the log file as a parameter")
 	}
-	logFile := os.Args[1]
-	//until we add the consul configuration
-	// load the reader for the log file
-	reader, err := Reader.GetReader(logFile)
-	if err != nil {
-		log.Fatalf("❌ error finding the reader: %v", err)
-	}
+	logFile :=
+
 
 	// reads the log file and parses it into records
-	records, err := reader.Read(logFile)
-	if err != nil {
-		log.Fatalf("❌ error reading the reader: %v", err)
-	}
-
+	
+    records, err := Reader.ReadRecordsFromConsul(logFile, configuration.GlobalConsulClient)
+    if err != nil {
+	   log.Fatalf("❌ Failed to read records: %v", err)
+    } 
 	commands := make(chan string)
 
 	// start the simulator in a goroutine

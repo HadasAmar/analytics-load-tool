@@ -1,4 +1,4 @@
-package Formatter
+package formatter
 
 import (
 	"fmt"
@@ -7,6 +7,14 @@ import (
 	"github.com/HadasAmar/analytics-load-tool/Model"
 )
 
+type SQLFormatter struct{}
+
+// Format implements the Formatter interface, returning a SQL string from ParsedQuery
+func (f *SQLFormatter) Format(rec *Model.ParsedQuery) (FormattedRecord, error) {
+	return BuildSQLQuery(rec), nil
+}
+
+// BuildSQLQuery generates a full SQL query string from a parsed query struct.
 func BuildSQLQuery(pq *Model.ParsedQuery) string {
 	if pq == nil {
 		return ""

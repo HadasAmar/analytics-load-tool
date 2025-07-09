@@ -76,7 +76,7 @@ func main() {
 			continue
 		}
 
-		raw := formatter.BuildSQLQuery(record.Parsed)
+		raw = formatter.BuildSQLQuery(record.Parsed)
 		pretty := formatter.PrettySQL(raw)
 
 		count++
@@ -100,4 +100,3 @@ func main() {
 		panic(err)
 	}
 }
-

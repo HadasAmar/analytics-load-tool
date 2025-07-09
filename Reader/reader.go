@@ -2,8 +2,13 @@ package Reader
 
 import (
 	"fmt"
-	"path/filepath"
+	"strings"
+
+	"github.com/HadasAmar/analytics-load-tool/Model"
+	"github.com/HadasAmar/analytics-load-tool/configuration"
+	//"path/filepath"
 )
+
 // Reader selection based on input_language from Consul
 func GetReaderFromConsul(filename string, client *configuration.ConsulClient) (FileReader, error) {
 	lang, err := configuration.GetInputLanguage(client)

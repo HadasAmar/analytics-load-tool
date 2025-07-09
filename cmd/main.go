@@ -26,7 +26,7 @@ func main() {
 	}
 
 	// ✅ עכשיו מותר לקרוא עם GlobalConsulClient
-	records, err := Reader.ReadRecordsFromConsul(logFile, configuration.GlobalConsulClient)
+	records, err := Reader.ReadLogFile(logFile)
 	if err != nil {
 		log.Fatalf("❌ Failed to read records: %v", err)
 	}

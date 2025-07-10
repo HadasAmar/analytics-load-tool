@@ -2,11 +2,14 @@ package Simulator
 
 import (
 	"fmt"
+	"log"
 	"sort"
+	"strconv"
 	"sync"
 	"time"
 
 	"github.com/HadasAmar/analytics-load-tool/Model"
+	"github.com/HadasAmar/analytics-load-tool/configuration"
 )
 
 // ReplayEvent represents an event in the simulation.
@@ -64,46 +67,80 @@ func SimulateReplayWithControl(records []*Model.ParsedRecord, commands chan stri
 		return err
 	}
 
+	rawSpeed, err := configuration.GetSpeedFactor(configuration.GlobalConsulClient)
+	if err != nil {
+		log.Printf("⚠️ failed to get speed_factor: %v", err)
+		rawSpeed = "1.0"
+	}
+	fmt.Printf("✅ speed_factor from Consul: %s\n", rawSpeed)
+
+	// המרה ל־float64
+	speed, err := strconv.ParseFloat(rawSpeed, 64)
+	if err != nil {
+		log.Fatalf("❌ Failed to parse speed_factor as float: %v", err)
+	}
+
 	paused := false
 
 	for i, event := range events {
+		adjustedDelay := ReplaySpeedup(event.Delay, speed)
+
+		start := time.Now()
+
 		if i > 0 {
-			adjusted := ReplaySpeedup(event.Delay, 2)
-			fmt.Printf("original %v wait %v...\n", event.Delay.Milliseconds(), adjusted.Milliseconds())
+			fmt.Printf("🕒 Event %d | Original delay: %v ms | Adjusted: %v ms\n", i, event.Delay.Milliseconds(), adjustedDelay.Milliseconds())
+		} else {
+			fmt.Printf("🟢 Event %d | No delay (first event)\n", i)
 		}
 
-		// Wait for the adjusted delay
-		timer := time.NewTimer(ReplaySpeedup(event.Delay, 0.5))
+		timer := time.NewTimer(adjustedDelay)
+		defer timer.Stop()
 
+	waitLoop:
 		for {
 			select {
 			case cmd := <-commands:
-				if cmd == "pause" {
-					fmt.Println("⏸ simulation paused. Type 'resume' to continue or 'stop' to end.")
+				switch cmd {
+				case "pause":
+					fmt.Println("⏸ simulation paused")
 					paused = true
-				}
-				if cmd == "resume" {
-					fmt.Println("▶️ continuing simulation")
+				case "resume":
+					fmt.Println("▶️ simulation resumed")
 					paused = false
-				}
-				if cmd == "stop" {
+				case "stop":
 					fmt.Println("🛑 simulation stopped")
 					return nil
 				}
 			case <-timer.C:
-				if !paused {
-					fmt.Printf("Sends an event on time %v with IP %s\n", event.Timestamp, event.Payload.IP)
-					break
-				} else {
-					time.Sleep(500 * time.Millisecond)
-					timer.Reset(0)
+				if paused {
+					fmt.Println("⏸ timer fired, but still paused – waiting for resume...")
+					//wait for resume command
+					for paused {
+						time.Sleep(200 * time.Millisecond)
+						select {
+						case cmd := <-commands:
+							if cmd == "resume" {
+								fmt.Println("▶️ resumed from pause")
+								paused = false
+							}
+							if cmd == "stop" {
+								fmt.Println("🛑 simulation stopped")
+								return nil
+							}
+						default:
+							//wait
+						}
+					}
 				}
-			}
-			if !paused {
-				break
+
+				// Send the event payload to the command channel
+				elapsed := time.Since(start)
+				fmt.Printf("🚀 Sent event at %v (waited %.0f ms)\n", event.Timestamp, elapsed.Seconds()*1000)
+				break waitLoop
 			}
 		}
 	}
+
 	return nil
 }
 
@@ -154,6 +191,5 @@ func SimulateReplayInGroups(records []*Model.ParsedRecord, commands chan string,
 		}
 		wg.Wait()
 	}
-
 	return nil
 }

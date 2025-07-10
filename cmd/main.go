@@ -6,11 +6,11 @@ import (
 	"log"
 	"os"
 
-	formatter "github.com/HadasAmar/analytics-load-tool/formatter"
 	"github.com/HadasAmar/analytics-load-tool/Reader"
 	"github.com/HadasAmar/analytics-load-tool/Runner"
 	Simulator "github.com/HadasAmar/analytics-load-tool/Simulator"
 	"github.com/HadasAmar/analytics-load-tool/configuration"
+	formatter "github.com/HadasAmar/analytics-load-tool/formatter"
 )
 
 func main() {
@@ -31,26 +31,35 @@ func main() {
 	}
 
 	commands := make(chan string)
+	done := make(chan struct{})
 
-	// Start simulation in background
 	go func() {
-		if err := Simulator.SimulateReplayInGroups(records, commands, 2.0); err != nil {
-			log.Fatalf("❌ Simulation failed: %v", err)
+		// Simulator.SimulateReplayInGroups(records, commands, 2.0)
+		err := Simulator.SimulateReplayWithControl(records, commands)
+		if err != nil {
+			fmt.Printf("❌ Simulation error: %v\n", err)
 		}
+		close(done)
 	}()
 
 	// Command loop
-	for {
-		var input string
-		fmt.Println("Enter command [pause/resume/stop]:")
-		fmt.Scanln(&input)
-		if input == "stop" {
-			break
+	go func() {
+		for {
+			var input string
+			fmt.Println("Enter command [pause/resume/stop]:")
+			fmt.Scanln(&input)
+			if input == "stop" {
+				commands <- "stop"
+				return
+			}
+			if input == "pause" || input == "resume" {
+				commands <- input
+			}
 		}
-		if input == "pause" || input == "resume" {
-			commands <- input
-		}
-	}
+	}()
+
+	<-done
+	fmt.Println("✅ Simulation completed. Continuing main...")
 
 	// Create SQL output file
 	f, err := os.Create("output.sql")
@@ -85,7 +94,7 @@ func main() {
 	// Optional: Run query in BigQuery
 	ctx := context.Background()
 	projectID := "platform-hackaton-2025"
-	credsPath := "./credentials.json"
+	credsPath := "../credentials.json"
 
 	runner, err := Runner.NewBigQueryRunner(ctx, projectID, credsPath)
 	if err != nil {

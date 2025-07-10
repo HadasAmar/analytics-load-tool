@@ -23,7 +23,7 @@ func NewBigQueryRunner(ctx context.Context, projectID, credsPath string) (*BigQu
 
 		return nil, fmt.Errorf("failed to create BQ client: %w", err)
 	}
-	log.Println(":white_check_mark: BigQuery client created successfully")
+	fmt.Println(":white_check_mark: BigQuery client created successfully")
 	return &BigQueryRunner{BQClient: client}, nil
 }
 

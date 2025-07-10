@@ -3,6 +3,7 @@ package Simulator
 import (
 	"fmt"
 	"sort"
+	"sync"
 	"time"
 
 	"github.com/HadasAmar/analytics-load-tool/Model"
@@ -15,14 +16,14 @@ type ReplayEvent struct {
 	Delay     time.Duration
 }
 
-// return a slice of ReplayEvent based on the provided records.
-// Each event contains the timestamp, payload, and delay since the previous event.
+// CalculateReplayEvents returns a slice of ReplayEvent based on the provided records.
+// Each event includes the timestamp, payload, and delay since the previous event.
 func CalculateReplayEvents(records []*Model.ParsedRecord) ([]ReplayEvent, error) {
 	if len(records) == 0 {
 		return nil, nil
 	}
 
-	// sort records by LogTime
+	// Sort records by LogTime
 	sort.Slice(records, func(i, j int) bool {
 		return records[i].LogTime.Before(records[j].LogTime)
 	})
@@ -47,7 +48,7 @@ func CalculateReplayEvents(records []*Model.ParsedRecord) ([]ReplayEvent, error)
 	return result, nil
 }
 
-// function that calculates the delay based on a speedup factor.
+// ReplaySpeedup calculates the adjusted delay based on a speedup factor.
 func ReplaySpeedup(delay time.Duration, speedup float64) time.Duration {
 	if speedup <= 0 {
 		speedup = 1.0
@@ -56,7 +57,7 @@ func ReplaySpeedup(delay time.Duration, speedup float64) time.Duration {
 	return adjusted
 }
 
-// SimulateReplay reads records and plays them with real latency (in milliseconds)
+// SimulateReplayWithControl simulates events with delay and allows command control (pause/resume/stop)
 func SimulateReplayWithControl(records []*Model.ParsedRecord, commands chan string) error {
 	events, err := CalculateReplayEvents(records)
 	if err != nil {
@@ -71,7 +72,7 @@ func SimulateReplayWithControl(records []*Model.ParsedRecord, commands chan stri
 			fmt.Printf("original %v wait %v...\n", event.Delay.Milliseconds(), adjusted.Milliseconds())
 		}
 
-		//wait for the delay of the event
+		// Wait for the adjusted delay
 		timer := time.NewTimer(ReplaySpeedup(event.Delay, 0.5))
 
 		for {
@@ -92,11 +93,10 @@ func SimulateReplayWithControl(records []*Model.ParsedRecord, commands chan stri
 			case <-timer.C:
 				if !paused {
 					fmt.Printf("Sends an event on time %v with IP %s\n", event.Timestamp, event.Payload.IP)
-					break // breaks the loop and continues to the next event
+					break
 				} else {
-					// wait for the timer to reset if paused
 					time.Sleep(500 * time.Millisecond)
-					timer.Reset(0) // reset the timer to avoid blocking
+					timer.Reset(0)
 				}
 			}
 			if !paused {
@@ -104,5 +104,56 @@ func SimulateReplayWithControl(records []*Model.ParsedRecord, commands chan stri
 			}
 		}
 	}
+	return nil
+}
+
+// SimulateReplayInGroups runs SimulateReplayWithControl in parallel for each group of events with the same timestamp
+func SimulateReplayInGroups(records []*Model.ParsedRecord, commands chan string, speedup float64) error {
+	events, err := CalculateReplayEvents(records)
+	if err != nil {
+		return err
+	}
+
+	// Group records by timestamp
+	timestampGroups := make(map[time.Time][]*Model.ParsedRecord)
+	var timestamps []time.Time
+
+	for _, event := range events {
+		ts := event.Timestamp
+		timestampGroups[ts] = append(timestampGroups[ts], event.Payload)
+	}
+
+	// Sort timestamps chronologically
+	for ts := range timestampGroups {
+		timestamps = append(timestamps, ts)
+	}
+	sort.Slice(timestamps, func(i, j int) bool {
+		return timestamps[i].Before(timestamps[j])
+	})
+
+	var prev time.Time
+
+	for i, ts := range timestamps {
+		group := timestampGroups[ts]
+
+		// Sleep based on the time difference between groups
+		if i > 0 {
+			delay := ts.Sub(prev)
+			time.Sleep(ReplaySpeedup(delay, speedup))
+		}
+		prev = ts
+
+		var wg sync.WaitGroup
+		wg.Add(len(group))
+
+		for _, record := range group {
+			go func(r *Model.ParsedRecord) {
+				defer wg.Done()
+				SimulateReplayWithControl([]*Model.ParsedRecord{r}, commands)
+			}(record)
+		}
+		wg.Wait()
+	}
+
 	return nil
 }

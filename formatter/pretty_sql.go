@@ -1,17 +1,18 @@
-package Formatter
+package formatter
 
 import (
 	"regexp"
 	"strings"
 )
 
+// Terminal color codes
 const (
 	Reset = "\033[0m"
 	Cyan  = "\033[36m"
 	Green = "\033[32m"
 )
 
-// עיצוב SQL עם שורות חדשות והזחות
+// Format SQL with line breaks and indentation
 func PrettySQL(sql string) string {
 	keywords := []string{"SELECT", "FROM", "WHERE", "GROUP BY", "HAVING", "ORDER BY", "LIMIT", "/*"}
 	for _, kw := range keywords {
@@ -23,7 +24,7 @@ func PrettySQL(sql string) string {
 	return strings.TrimSpace(sql)
 }
 
-// צביעה של מילות מפתח
+// Highlight SQL keywords with color
 func ColorizeSQL(sql string) string {
 	keywords := []string{
 		"SELECT", "FROM", "WHERE", "GROUP BY", "HAVING",

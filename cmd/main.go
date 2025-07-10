@@ -14,36 +14,31 @@ import (
 )
 
 func main() {
-	// ⭐️ שינוי: קלט עם שם טבלה
+	// :star:️ שינוי: קלט עם שם טבלה
 	if len(os.Args) < 3 {
 		log.Fatal("Usage: go run ./cmd/main.go <log_file> <table>")
 	}
 	logFile := os.Args[1]
 	overrideTable := os.Args[2] // ← הוספה חדשה: שם טבלה מה-CLI
-
-	// 🟢 אתחול קונסול – מוקדם!
+	// :large_green_circle: אתחול קונסול – מוקדם!
 	err := configuration.InitGlobalConsul()
 	if err != nil {
-		log.Fatalf("❌ Failed to initialize Consul: %v", err)
+		log.Fatalf(":x: Failed to initialize Consul: %v", err)
 	}
-
-	// ✅ עכשיו מותר לקרוא עם GlobalConsulClient
+	// :white_check_mark: עכשיו מותר לקרוא עם GlobalConsulClient
 	records, err := Reader.ReadRecordsFromConsul(logFile, configuration.GlobalConsulClient)
 	if err != nil {
-		log.Fatalf("❌ Failed to read records: %v", err)
+		log.Fatalf(":x: Failed to read records: %v", err)
 	}
-
 	commands := make(chan string)
-
-	// start the simulator in a goroutine
+	// סימולציה ברקע
 	go func() {
 		errSimulateReplay := Simulator.SimulateReplayWithControl(records, commands)
 		if errSimulateReplay != nil {
 			log.Fatalf("error simulating: %v", errSimulateReplay)
 		}
 	}()
-
-	// control loop to handle user commands
+	// לולאת שליטה מהמשתמש
 	for {
 		var input string
 		fmt.Println("enter command [pause/resume/stop]:")
@@ -55,24 +50,19 @@ func main() {
 			break
 		}
 	}
-
 	// יצירת קובץ SQL
 	f, err := os.Create("output.sql")
 	if err != nil {
 		log.Fatal(err)
 	}
 	defer f.Close()
-
 	ctx := context.Background()
-
 	projectID := "platform-hackaton-2025"
 	credsPath := "./credentials.json"
-	// יצירת Runner עם credentials
 	runner, err := Runner.NewBigQueryRunner(ctx, projectID, credsPath)
 	if err != nil {
-		log.Fatalf("❌ Failed to create Runner: %v", err)
+		log.Fatalf(":x: Failed to create Runner: %v", err)
 	}
-
 	// כתיבת שאילתות לקובץ
 	count := 0
 	raw := ""
@@ -80,26 +70,22 @@ func main() {
 		if record == nil || record.Parsed == nil {
 			continue
 		}
-
-		// ⭐️ שינוי חשוב: דריסת שם הטבלה מתוך מה שהמשתמש ביקש
+		// :star:️ שינוי חשוב: דריסת שם הטבלה מתוך מה שהמשתמש ביקש
 		if overrideTable != "" {
 			record.Parsed.TableName = overrideTable // ← הוספה חדשה
 		}
-
 		raw = formatter.BuildSQLQuery(record.Parsed)
 		pretty := formatter.PrettySQL(raw)
-
 		count++
 		_, err := f.WriteString(pretty + "\n\n")
 		if err != nil {
 			log.Fatal(err)
 		}
 	}
-
 	// שליחה לביגקווארי
 	duration, jobID, err := runner.RunRawQuery(ctx, raw)
 	if err != nil {
-		log.Fatalf("❌ Query failed: %v", err)
+		log.Fatalf(":x: Query failed: %v", err)
 	}
-	log.Printf("🏁 Finished successfully | Duration: %s | Job ID: %s", duration, jobID)
+	log.Printf(":checkered_flag: Finished successfully | Duration: %s | Job ID: %s", duration, jobID)
 }

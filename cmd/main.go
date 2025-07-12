@@ -14,75 +14,100 @@ import (
 )
 
 func main() {
-	// :star:️ שינוי: קלט עם שם טבלה
+	// ⚠️ קלט מה־CLI: קובץ לוגים ושם טבלה
 	if len(os.Args) < 3 {
 		log.Fatal("Usage: go run ./cmd/main.go <log_file> <table>")
 	}
 	logFile := os.Args[1]
-	overrideTable := os.Args[2] // ← הוספה חדשה: שם טבלה מה-CLI
-	// :large_green_circle: אתחול קונסול – מוקדם!
+	overrideTable := os.Args[2]
+
+	// אתחול Consul
 	err := configuration.InitGlobalConsul()
 	if err != nil {
-		log.Fatalf(":x: Failed to initialize Consul: %v", err)
+		log.Fatalf("❌ Failed to initialize Consul: %v", err)
 	}
-	// :white_check_mark: עכשיו מותר לקרוא עם GlobalConsulClient
+
+	// קריאת לוגים מה־Consul
 	records, err := Reader.ReadRecordsFromConsul(logFile, configuration.GlobalConsulClient)
 	if err != nil {
 		log.Fatalf(":x: Failed to read records: %v", err)
 	}
+
+	// הדמיית שליחה
 	commands := make(chan string)
-	// סימולציה ברקע
 	go func() {
 		errSimulateReplay := Simulator.SimulateReplayWithControl(records, commands)
 		if errSimulateReplay != nil {
 			log.Fatalf("error simulating: %v", errSimulateReplay)
 		}
 	}()
-	// לולאת שליטה מהמשתמש
+
+	// קונטרול להרצה
 	for {
 		var input string
 		fmt.Println("enter command [pause/resume/stop]:")
 		fmt.Scanln(&input)
-		if input == "pause" || input == "resume" || input == "stop" {
-			commands <- input
-		}
 		if input == "stop" {
 			break
 		}
+		if input == "pause" || input == "resume" {
+			commands <- input
+		}
 	}
+
 	// יצירת קובץ SQL
 	f, err := os.Create("output.sql")
 	if err != nil {
 		log.Fatal(err)
 	}
 	defer f.Close()
+
+	// אתחול BigQuery Runner
 	ctx := context.Background()
 	projectID := "platform-hackaton-2025"
 	credsPath := "./credentials.json"
+
 	runner, err := Runner.NewBigQueryRunner(ctx, projectID, credsPath)
 	if err != nil {
-		log.Fatalf(":x: Failed to create Runner: %v", err)
+		log.Printf("❌ Skipping BigQuery execution – client creation failed: %v", err)
+		return
 	}
-	// כתיבת שאילתות לקובץ
+
+	// יצירת formatter גנרי
+	var sqlFormatter formatter.Formatter = &formatter.SQLFormatter{}
+
+	// כתיבה לקובץ + שליחה לביגקווארי
 	count := 0
-	raw := ""
+	var raw string
+
 	for _, record := range records {
 		if record == nil || record.Parsed == nil {
 			continue
 		}
-		// :star:️ שינוי חשוב: דריסת שם הטבלה מתוך מה שהמשתמש ביקש
+
+		// דריסת שם הטבלה
 		if overrideTable != "" {
-			record.Parsed.TableName = overrideTable // ← הוספה חדשה
+			record.Parsed.TableName = overrideTable
 		}
-		raw = formatter.BuildSQLQuery(record.Parsed)
+
+		result, err := sqlFormatter.Format(record.Parsed)
+		if err != nil {
+			log.Printf("⚠️ Format error: %v", err)
+			continue
+		}
+
+		raw, _ = result.(string)
 		pretty := formatter.PrettySQL(raw)
-		count++
-		_, err := f.WriteString(pretty + "\n\n")
+
+		_, err = f.WriteString(pretty + "\n\n")
 		if err != nil {
 			log.Fatal(err)
 		}
+		count++
 	}
-	// שליחה לביגקווארי
+	log.Printf("✅ Created output.sql with %d queries", count)
+
+	// שליחה לשאילתה אחת אחרונה (raw)
 	duration, jobID, err := runner.RunRawQuery(ctx, raw)
 	if err != nil {
 		log.Fatalf(":x: Query failed: %v", err)

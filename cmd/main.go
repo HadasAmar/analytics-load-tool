@@ -91,20 +91,10 @@ func main() {
 	}
 	fmt.Printf("✅ Created output.sql with %d queries", count)
 
-	// Optional: Run query in BigQuery
-	ctx := context.Background()
-	projectID := "platform-hackaton-2025"
-	credsPath := "../credentials.json"
-
-	runner, err := Runner.NewBigQueryRunner(ctx, projectID, credsPath)
-	if err != nil {
-		log.Printf("❌ Skipping BigQuery execution – client creation failed: %v", err)
-		return
-	}
-
+	// send the last query
 	duration, jobID, err := runner.RunRawQuery(ctx, raw)
 	if err != nil {
-		log.Fatalf("❌ Query failed: %v", err)
+		log.Fatalf(":x: Query failed: %v", err)
 	}
-	log.Printf("🏁 Finished successfully | Duration: %s | Job ID: %s", duration, jobID)
+	log.Printf(":checkered_flag: Finished successfully | Duration: %s | Job ID: %s", duration, jobID)
 }

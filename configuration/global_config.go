@@ -7,7 +7,11 @@ import (
 var GlobalConsulClient *ConsulClient
 
 func InitGlobalConsul() error {
-	address := os.Getenv("localhost:8500")
+	address := os.Getenv("CONSUL_ADDRESS")
+	if address == "" {
+		address = "localhost:8500"
+	}
+	// Create a new Consul client
 	client, err := NewConsulClient(address)
 	if err != nil {
 		return err
@@ -15,5 +19,3 @@ func InitGlobalConsul() error {
 	GlobalConsulClient = client
 	return nil
 }
-
-

@@ -2,6 +2,9 @@ package configuration
 
 import (
 	"fmt"
+	"log"
+	"strconv"
+	"strings"
 )
 
 // Specific function for retrieving speed_factor
@@ -17,6 +20,28 @@ func GetSpeedFactor(client *ConsulClient) (string, error) {
 	}
 
 	return value, nil
+}
+
+// GetSpeedFactorValue retrieves the speed factor from Consul and returns it as a float64.
+func GetSpeedFactorValue() float64 {
+	if GlobalConsulClient == nil {
+		_ = InitGlobalConsul()
+	}
+
+	raw, err := GetSpeedFactor(GlobalConsulClient)
+	if err != nil {
+		log.Printf("⚠️ error: %v", err)
+		return 1.0 //default value if there's an error
+	}
+
+	clean := strings.TrimSpace(raw)
+	speed, err := strconv.ParseFloat(clean, 64)
+	if err != nil {
+		log.Printf("⚠️ invalid float: %v", err)
+		return 1.0
+	}
+
+	return speed
 }
 
 // Specific function for retrieving input_language

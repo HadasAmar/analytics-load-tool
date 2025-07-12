@@ -89,7 +89,7 @@ func main() {
 		}
 		count++
 	}
-	log.Printf("✅ Created output.sql with %d queries", count)
+	fmt.Printf("✅ Created output.sql with %d queries", count)
 
 	// Optional: Run query in BigQuery
 	ctx := context.Background()

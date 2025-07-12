@@ -14,6 +14,7 @@ import (
 )
 
 func main() {
+
 	if len(os.Args) < 2 {
 		log.Fatal("Pass a path to the log file as a parameter")
 	}
@@ -90,6 +91,16 @@ func main() {
 		count++
 	}
 	fmt.Printf("✅ Created output.sql with %d queries", count)
+
+	// Initialize BigQuery client
+	ctx := context.Background()
+	projectID := "platform-hackaton-2025"
+	credsPath := "./credentials.json"
+	runner, err := Runner.NewBigQueryRunner(ctx, projectID, credsPath)
+	if err != nil {
+		log.Printf(":x: Skipping BigQuery execution – client creation failed: %v", err)
+		return
+	}
 
 	// send the last query
 	duration, jobID, err := runner.RunRawQuery(ctx, raw)

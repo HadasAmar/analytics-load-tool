@@ -2,12 +2,9 @@ package Simulator
 
 import (
 	"fmt"
-	"log"
 	"sort"
-	"strconv"
 	"sync"
 	"time"
-
 	"github.com/HadasAmar/analytics-load-tool/Model"
 	"github.com/HadasAmar/analytics-load-tool/configuration"
 )
@@ -67,27 +64,12 @@ func SimulateReplayWithControl(records []*Model.ParsedRecord, commands chan stri
 		return err
 	}
 
-	rawSpeed := "1.0" // Default speed factor
-	if configuration.GlobalConsulClient == nil {
-		log.Println("⚠️ Global Consul client is not initialized, using default speed factor of 1.0")
-	} else {
-		rawSpeed, err := configuration.GetSpeedFactor(configuration.GlobalConsulClient)
-		if err != nil {
-			log.Printf("⚠️ failed to get speed_factor: %v", err)
-			rawSpeed = "1.0"
-		}
-		fmt.Printf("✅ speed_factor from Consul: %s\n", rawSpeed)
-	}
-	// המרה ל־float64
-	speed, err := strconv.ParseFloat(rawSpeed, 64)
-	if err != nil {
-		log.Fatalf("❌ Failed to parse speed_factor as float: %v", err)
-	}
+	rawSpeed := configuration.GetSpeedFactorValue()
 
 	paused := false
 
 	for i, event := range events {
-		adjustedDelay := ReplaySpeedup(event.Delay, speed)
+		adjustedDelay := ReplaySpeedup(event.Delay, rawSpeed)
 
 		start := time.Now()
 

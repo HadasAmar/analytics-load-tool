@@ -13,7 +13,7 @@ func (f *SQLFormatter) Format(rec *Model.ParsedQuery) (FormattedRecord, error) {
 	return BuildSQLQuery(rec), nil
 }
 
-// BuildSQLQuery builds a BigQuery-compatible SQL query from a generic ParsedQuery JSON object
+// BuildSQLQuery builds a BigQuery-compatible SQL query
 func BuildSQLQuery(pq *Model.ParsedQuery) string {
 	if pq == nil {
 		return ""
@@ -30,7 +30,7 @@ func BuildSQLQuery(pq *Model.ParsedQuery) string {
 	}
 
 	for _, agg := range pq.Aggregations {
-		converted := convertFunctionsToBigQuerySQL(agg)
+		converted := convertDruidFuncToSQL(agg)
 		if _, exists := selectSet[converted]; !exists {
 			selectSet[converted] = struct{}{}
 			selectClause = append(selectClause, converted)
@@ -43,7 +43,7 @@ func BuildSQLQuery(pq *Model.ParsedQuery) string {
 			expr = p.FieldName
 		}
 		if expr != "" {
-			expr = convertFunctionsToBigQuerySQL(expr)
+			expr = convertDruidFuncToSQL(expr)
 			formatted := fmt.Sprintf("%s AS %s", expr, p.Name)
 			if _, exists := selectSet[formatted]; !exists {
 				selectSet[formatted] = struct{}{}
@@ -75,7 +75,7 @@ func BuildSQLQuery(pq *Model.ParsedQuery) string {
 
 	if pq.Having != nil {
 		if having := HavingToSQL(pq.Having); having != "" {
-			query += fmt.Sprintf(" HAVING %s", convertFunctionsToBigQuerySQL(having))
+			query += fmt.Sprintf(" HAVING %s", convertDruidFuncToSQL(having))
 		}
 	}
 
@@ -96,15 +96,15 @@ func BuildSQLQuery(pq *Model.ParsedQuery) string {
 	if len(pq.Intervals) > 0 {
 		query += fmt.Sprintf(" /* intervals: %s */", strings.Join(pq.Intervals, ", "))
 	}
-	if len(pq.Context) > 0 {
-	query += fmt.Sprintf(" /* context: %+v */", pq.Context)
-}
+	if pq.Context != nil && len(pq.Context) > 0 {
+		query += fmt.Sprintf(" /* context: %+v */", pq.Context)
+	}
 
 	return query
 }
 
-// convertFunctionsToBigQuerySQL replaces generic function names with BigQuery-compatible equivalents
-func convertFunctionsToBigQuerySQL(expr string) string {
+// convertDruidFuncToSQL replaces Druid-style functions with BigQuery-compatible ones
+func convertDruidFuncToSQL(expr string) string {
 	replacements := map[string]string{
 		"longSum":     "SUM",
 		"doubleSum":   "SUM",
@@ -116,8 +116,8 @@ func convertFunctionsToBigQuerySQL(expr string) string {
 		"count":       "COUNT",
 	}
 
-	for inputFunc, bqFunc := range replacements {
-		expr = strings.ReplaceAll(expr, inputFunc+"(", bqFunc+"(")
+	for druidFunc, sqlFunc := range replacements {
+		expr = strings.ReplaceAll(expr, druidFunc+"(", sqlFunc+"(")
 	}
 	return expr
 }

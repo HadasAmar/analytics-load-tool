@@ -1,4 +1,4 @@
-package formatter
+package Formatter
 
 import (
 	"fmt"

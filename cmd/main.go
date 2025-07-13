@@ -36,6 +36,7 @@ func main() {
 	commands := make(chan string)
 	done := make(chan struct{})
 	go func() {
+		// Simulator.SimulateReplayInGroups(records, commands, 2.0)
 		err := Simulator.SimulateReplayWithControl(records, commands)
 		if err != nil {
 			fmt.Printf("❌ Simulation error: %v\n", err)

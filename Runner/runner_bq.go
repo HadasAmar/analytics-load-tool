@@ -34,8 +34,6 @@ func (r *BigQueryRunner) RunRawQuery(ctx context.Context, queryStr string) (time
 		return 0, "", fmt.Errorf("query string is empty – cannot run")
 	}
 
-	fmt.Println(":inbox_tray: Running SQL Query")
-
 	query := r.BQClient.Query(queryStr)
 
 	// Record the start time

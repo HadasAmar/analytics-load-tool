@@ -1,11 +1,15 @@
 package Simulator
 
 import (
+	"context"
 	"fmt"
 	"sort"
 	"sync"
 	"time"
+
+	"github.com/HadasAmar/analytics-load-tool/Formatter"
 	"github.com/HadasAmar/analytics-load-tool/Model"
+	"github.com/HadasAmar/analytics-load-tool/Runner"
 	"github.com/HadasAmar/analytics-load-tool/configuration"
 )
 
@@ -58,29 +62,42 @@ func ReplaySpeedup(delay time.Duration, speedup float64) time.Duration {
 }
 
 // SimulateReplayWithControl simulates events with delay and allows command control (pause/resume/stop)
-func SimulateReplayWithControl(records []*Model.ParsedRecord, commands chan string) error {
+func SimulateReplayWithControl(
+	records []*Model.ParsedRecord,
+	commands chan string,
+	sqlFormatter Formatter.Formatter,
+	runner Runner.QueryRunner,
+	ctx context.Context,
+	overrideTable string,
+	wg *sync.WaitGroup,
+) error {
 	events, err := CalculateReplayEvents(records)
 	if err != nil {
 		return err
 	}
 
-	rawSpeed := configuration.GetSpeedFactorValue()
-
+	speed := configuration.GetSpeedFactorValue()
 	paused := false
 
+	baseTime := events[0].Timestamp
+	simStart := time.Now()
+
 	for i, event := range events {
-		adjustedDelay := ReplaySpeedup(event.Delay, rawSpeed)
+		// calculate adjusted time based on speedup
+		elapsed := event.Timestamp.Sub(baseTime)
+		adjusted := ReplaySpeedup(elapsed, speed)
+		targetTime := simStart.Add(adjusted)
 
-		start := time.Now()
-
-		if i > 0 {
-			fmt.Printf("🕒 Event %d | Original delay: %v ms | Adjusted: %v ms\n", i, event.Delay.Milliseconds(), adjustedDelay.Milliseconds())
-		} else {
-			fmt.Printf("🟢 Event %d | No delay (first event)\n", i)
+		// wait until the target time
+		wait := time.Until(targetTime)
+		if wait > 0 {
+			time.Sleep(wait)
 		}
 
-		timer := time.NewTimer(adjustedDelay)
-		defer timer.Stop()
+		// print event details
+		now := time.Now().Format("15:04:05.000")
+		fmt.Printf("[%s] 🕒 Event %d | ORIGINAL delay: %v ms | ADJUSTED: %v ms\n",
+			now, i, event.Delay.Milliseconds(), ReplaySpeedup(event.Delay, speed).Milliseconds())
 
 	waitLoop:
 		for {
@@ -97,31 +114,46 @@ func SimulateReplayWithControl(records []*Model.ParsedRecord, commands chan stri
 					fmt.Println("🛑 simulation stopped")
 					return nil
 				}
-			case <-timer.C:
+			default:
 				if paused {
-					fmt.Println("⏸ timer fired, but still paused – waiting for resume...")
-					//wait for resume command
-					for paused {
-						time.Sleep(200 * time.Millisecond)
-						select {
-						case cmd := <-commands:
-							if cmd == "resume" {
-								fmt.Println("▶️ resumed from pause")
-								paused = false
-							}
-							if cmd == "stop" {
-								fmt.Println("🛑 simulation stopped")
-								return nil
-							}
-						default:
-							//wait
-						}
-					}
+					time.Sleep(200 * time.Millisecond)
+					continue
 				}
 
-				// Send the event payload to the command channel
-				elapsed := time.Since(start)
-				fmt.Printf("🚀 Sent event at %v (waited %.0f ms)\n", event.Timestamp, elapsed.Seconds()*1000)
+				rec := event.Payload
+				if rec == nil || rec.Parsed == nil {
+					break waitLoop
+				}
+
+				if overrideTable != "" {
+					rec.Parsed.TableName = overrideTable
+				}
+
+				wg.Add(1)
+				go func(rec *Model.ParsedRecord, i int) {
+					defer wg.Done()
+					fmt.Printf("Running SQL Query for Event %d\n", i)
+
+					result, err := sqlFormatter.Format(rec.Parsed)
+					if err != nil {
+						fmt.Printf("⚠️ Format error: %v\n", err)
+						return
+					}
+
+					raw, ok := result.(string)
+					if !ok {
+						fmt.Println("⚠️ Failed to cast formatted query to string")
+						return
+					}
+
+					duration, jobID, err := runner.RunRawQuery(ctx, raw)
+					if err != nil {
+						fmt.Printf("❌ Query failed: %v\n", err)
+					} else {
+						fmt.Printf("✅ Query succeeded | Duration: %s | Job ID: %s\n", duration, jobID)
+					}
+				}(rec, i)
+
 				break waitLoop
 			}
 		}
@@ -172,7 +204,7 @@ func SimulateReplayInGroups(records []*Model.ParsedRecord, commands chan string,
 		for _, record := range group {
 			go func(r *Model.ParsedRecord) {
 				defer wg.Done()
-				SimulateReplayWithControl([]*Model.ParsedRecord{r}, commands)
+				// SimulateReplayWithControl([]*Model.ParsedRecord{r}, commands)
 			}(record)
 		}
 		wg.Wait()

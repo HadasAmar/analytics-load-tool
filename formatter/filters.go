@@ -3,7 +3,6 @@ package formatter
 import (
 	"fmt"
 	"strings"
-
 	"github.com/HadasAmar/analytics-load-tool/Model"
 )
 

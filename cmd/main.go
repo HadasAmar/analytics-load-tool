@@ -103,6 +103,8 @@ func main() {
 	}
 
 	// send the last query
+	// raw1 := "select * from My_Try.loadtool_logs"
+	fmt.Println("raw query:", raw)
 	duration, jobID, err := runner.RunRawQuery(ctx, raw)
 	if err != nil {
 		log.Fatalf(":x: Query failed: %v", err)

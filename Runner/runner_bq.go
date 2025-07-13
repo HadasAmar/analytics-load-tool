@@ -48,6 +48,8 @@ func (r *BigQueryRunner) RunRawQuery(ctx context.Context, queryStr string) (time
 
 	status, err := job.Wait(ctx)
 
+	
+
 	// Calculate duration
 	duration := time.Since(start)
 
@@ -57,6 +59,8 @@ func (r *BigQueryRunner) RunRawQuery(ctx context.Context, queryStr string) (time
 	if status.Err() != nil {
 		return duration, "", fmt.Errorf("job execution error: %w", status.Err())
 	}
+
+	
 
 	// Return duration and job ID on success
 	return duration, job.ID(), nil

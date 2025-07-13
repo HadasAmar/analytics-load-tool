@@ -118,6 +118,7 @@ func main() {
 		log.Printf("✅ Query succeeded | Duration: %s | Job ID: %s", duration, jobID)
 
 		count++
+
 	}
 
 	log.Printf("🎉 All done! %d queries written and sent to BigQuery", count)

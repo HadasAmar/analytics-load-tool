@@ -83,18 +83,18 @@ func SimulateReplayWithControl(
 	simStart := time.Now()
 
 	for i, event := range events {
-		// חישוב זמן יעד מוחלט לפי event.Timestamp
+		// calculate adjusted time based on speedup
 		elapsed := event.Timestamp.Sub(baseTime)
 		adjusted := ReplaySpeedup(elapsed, speed)
 		targetTime := simStart.Add(adjusted)
 
-		// המתנה מדויקת
+		// wait until the target time
 		wait := time.Until(targetTime)
 		if wait > 0 {
 			time.Sleep(wait)
 		}
 
-		// הדפסה
+		// print event details
 		now := time.Now().Format("15:04:05.000")
 		fmt.Printf("[%s] 🕒 Event %d | ORIGINAL delay: %v ms | ADJUSTED: %v ms\n",
 			now, i, event.Delay.Milliseconds(), ReplaySpeedup(event.Delay, speed).Milliseconds())

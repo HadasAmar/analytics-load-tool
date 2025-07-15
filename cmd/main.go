@@ -4,28 +4,59 @@ import (
 	"context"
 	"fmt"
 	"log"
-	"os"
 	"sync"
+	"time"
 
 	"github.com/HadasAmar/analytics-load-tool/Formatter"
 	"github.com/HadasAmar/analytics-load-tool/Reader"
 	"github.com/HadasAmar/analytics-load-tool/Runner"
 	"github.com/HadasAmar/analytics-load-tool/Simulator"
 	"github.com/HadasAmar/analytics-load-tool/configuration"
+	mongoLogger "github.com/HadasAmar/analytics-load-tool/mongo"
 )
 
 func main() {
-	// 🟡 Expect CLI args: <log_file> <override_table_name>
-	if len(os.Args) < 3 {
-		log.Fatal("Usage: go run ./cmd/main.go <log_file> <override_table>")
-	}
-	logFile := os.Args[1]
-	overrideTable := os.Args[2]
-
-	// 🔧 Initialize Consul (optional)
+	// initialize Consul
 	if err := configuration.InitGlobalConsul(); err != nil {
 		log.Fatalf("❌ Failed to initialize Consul: %v", err)
 	}
+
+	// get log file path from Consul
+	logFile, err := configuration.GetLogFilePath(configuration.GlobalConsulClient)
+	if err != nil {
+		log.Fatalf("❌ Failed to get log file path from Consul: %v", err)
+	}
+	// get override table name from Consul
+	overrideTable, err := configuration.GetOverrideTable(configuration.GlobalConsulClient)
+	if err != nil {
+		log.Fatalf("❌ Failed to get override table from Consul: %v", err)
+	}
+	
+	// 🟣 Init MongoDB logger
+	logger, err := mongoLogger.NewMongoLogger(
+		"mongodb+srv://shilat3015:sh0533143015@cluster0.q7ov2xk.mongodb.net",
+		"logsdb",
+		"records",
+		"progress",
+	)
+	if err != nil {
+		log.Fatalf("❌ Failed to connect to MongoDB: %v", err)
+	}
+
+	// ⏱ Fetch last processed timestamp
+	lastTS, err := logger.GetLastProcessedTimestamp()
+	if err != nil {
+		log.Fatalf("❌ Failed to get last processed timestamp: %v", err)
+	}
+	log.Printf("⏱ Resuming from: %s", lastTS.Format(time.RFC3339))
+
+	// write a value to Consul for testing
+	err = configuration.GlobalConsulClient.PutRawValue("loadtool/config/Recently_touched_index", lastTS.GoString())
+	if err != nil {
+		log.Fatalf("❌ Failed to write to Consul: %v", err)
+	}
+	log.Println("✅ Value written to Consul successfully!")
+
 
 	// 📥 Read records from file
 	records, err := Reader.ReadLogFile(logFile)
@@ -53,5 +84,16 @@ func main() {
 		log.Fatalf("❌ Simulation failed: %v", err)
 	}
 	wg.Wait()
+  
+// 	// שמירת כל רשומה ותחנה אחרונה
+// 	for _, record := range records {
+// 		if record == nil || record.Parsed == nil || record.LogTime.Before(lastTS) {
+// 			continue
+// 		}
+// 		_ = logger.SaveLog(record)
+// 		_ = logger.SaveLastProcessedTimestamp(record.LogTime)
+// 	}
+
+// 	<-done
 	fmt.Println("🎉 Simulation completed!")
 }

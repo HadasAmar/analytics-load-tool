@@ -76,6 +76,11 @@ func SimulateReplayWithControl(
 		return err
 	}
 
+	if len(events) == 0 {
+		fmt.Println("⚠️ No valid events to replay")
+		return nil
+	}
+
 	speed := configuration.GetSpeedFactorValue()
 	paused := false
 
@@ -161,6 +166,7 @@ func SimulateReplayWithControl(
 
 	return nil
 }
+
 
 // SimulateReplayInGroups runs SimulateReplayWithControl in parallel for each group of events with the same timestamp
 func SimulateReplayInGroups(records []*Model.ParsedRecord, commands chan string, speedup float64) error {

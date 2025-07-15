@@ -7,7 +7,6 @@ import (
 
 	"github.com/HadasAmar/analytics-load-tool/Model"
 )
-
 // ParseRawRecord returns a complete record: including IP, timestamp, raw query, and ParsedQuery
 func ParseRawRecord(timestamp, ip, raw string) *Model.ParsedRecord {
 	cleanIP := strings.TrimSpace(ip)
@@ -30,8 +29,6 @@ func ParseRawRecord(timestamp, ip, raw string) *Model.ParsedRecord {
 		RawJSON: raw,
 		Context: make(map[string]any),
 	}
-
-	// The logic for parsing the query remains unchanged:
 
 	// TableName
 	if ds, ok := query["dataSource"].(map[string]interface{}); ok {
@@ -95,11 +92,22 @@ func ParseRawRecord(timestamp, ip, raw string) *Model.ParsedRecord {
 		}
 	}
 
-	// Intervals
-	if intervals, ok := query["intervals"].([]interface{}); ok {
-		for _, iv := range intervals {
-			if s, ok := iv.(string); ok {
-				pq.Intervals = append(pq.Intervals, s)
+	// ✅ Intervals – תומך גם במבנה עטוף
+	if intervalsRaw, ok := query["intervals"]; ok {
+		switch v := intervalsRaw.(type) {
+		case []interface{}:
+			for _, iv := range v {
+				if s, ok := iv.(string); ok {
+					pq.Intervals = append(pq.Intervals, s)
+				}
+			}
+		case map[string]interface{}:
+			if list, ok := v["intervals"].([]interface{}); ok {
+				for _, iv := range list {
+					if s, ok := iv.(string); ok {
+						pq.Intervals = append(pq.Intervals, s)
+					}
+				}
 			}
 		}
 	}

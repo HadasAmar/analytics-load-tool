@@ -66,3 +66,36 @@ func (m *MongoLogger) GetLastProcessedTimestamp() (time.Time, error) {
 	}
 	return result.Timestamp, nil
 }
+func (m *MongoLogger) ReadLogsAfter(ts time.Time) ([]*Model.ParsedRecord, error) {
+    filter := bson.M{
+        "timestamp": bson.M{"$gt": ts},
+    }
+
+    cursor, err := m.recordColl.Find(context.TODO(), filter)
+    if err != nil {
+        return nil, err
+    }
+    defer cursor.Close(context.TODO())
+
+    var results []*Model.ParsedRecord
+
+    for cursor.Next(context.TODO()) {
+        var doc struct {
+            Timestamp time.Time `bson:"timestamp"`
+            IP        string    `bson:"ip"`
+            Raw       string    `bson:"raw"`
+        }
+
+        if err := cursor.Decode(&doc); err != nil {
+            continue
+        }
+
+        results = append(results, &Model.ParsedRecord{
+            LogTime: doc.Timestamp,
+            IP:      doc.IP,
+            Query:   doc.Raw,
+        })
+    }
+
+    return results, nil
+}

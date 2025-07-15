@@ -16,29 +16,18 @@ import (
 )
 
 func main() {
-	// initialize Consul
+	// 🟣 Init Consul
 	if err := configuration.InitGlobalConsul(); err != nil {
 		log.Fatalf("❌ Failed to initialize Consul: %v", err)
 	}
 
-	// get log file path from Consul
-	logFile, err := configuration.GetLogFilePath(configuration.GlobalConsulClient)
-	if err != nil {
-		log.Fatalf("❌ Failed to get log file path from Consul: %v", err)
-	}
-	// get override table name from Consul
+	// 🟡 Override table name from Consul
 	overrideTable, err := configuration.GetOverrideTable(configuration.GlobalConsulClient)
 	if err != nil {
 		log.Fatalf("❌ Failed to get override table from Consul: %v", err)
 	}
-	// write a value to Consul for testing
-	err = configuration.GlobalConsulClient.PutRawValue("loadtool/config/Recently_touched_index", "we need to enter somthing")
-	if err != nil {
-		log.Fatalf("❌ Failed to write to Consul: %v", err)
-	}
-	log.Println("✅ Value written to Consul successfully!")
 
-	// 🟣 Init MongoDB logger
+	// 🔵 Init MongoDB logger
 	logger, err := mongoLogger.NewMongoLogger(
 		"mongodb+srv://shilat3015:sh0533143015@cluster0.q7ov2xk.mongodb.net",
 		"logsdb",
@@ -50,17 +39,21 @@ func main() {
 	}
 
 	// ⏱ Fetch last processed timestamp
-	lastTS, err := logger.GetLastProcessedTimestamp()
-	if err != nil {
-		log.Fatalf("❌ Failed to get last processed timestamp: %v", err)
-	}
-	log.Printf("⏱ Resuming from: %s", lastTS.Format(time.RFC3339))
+// ⚠️ DEBUG ONLY: משוך את כל הרשומות מהמונגו בלי סינון לפי זמן
+lastTS := time.Time{}
 
-	// 📥 Read records from file
-	records, err := Reader.ReadLogFile(logFile)
+	// 📥 שליפת רשומות ממונגו
+	rawRecords, err := logger.ReadLogsAfter(lastTS)
 	if err != nil {
-		log.Fatalf("❌ Failed to read records: %v", err)
+		log.Fatalf("❌ Failed to read records from MongoDB: %v", err)
 	}
+	log.Printf("📥 Got %d raw records from Mongo", len(rawRecords))
+
+	records, err := Reader.ReadParsedRecordsFromMongo(rawRecords)
+	if err != nil {
+		log.Fatalf("❌ Failed to parse records: %v", err)
+	}
+	log.Printf("✅ Parsed %d records successfully", len(records))
 
 	// ☁️ Init BigQuery runner
 	ctx := context.Background()
@@ -72,10 +65,9 @@ func main() {
 		log.Fatalf("❌ Could not create BigQuery client: %v", err)
 	}
 
-	// 🧱 Create SQL formatter
 	var sqlFormatter Formatter.Formatter = &Formatter.SQLFormatter{}
 
-	// ▶️ Simulate replay in background
+	// ▶️ Simulate replay
 	var wg sync.WaitGroup
 	commands := make(chan string)
 	done := make(chan struct{})
@@ -89,7 +81,7 @@ func main() {
 		close(done)
 	}()
 
-	// 🕹️ Control loop for commands
+	// Controller
 	go func() {
 		for {
 			var input string
@@ -105,7 +97,7 @@ func main() {
 		}
 	}()
 
-	// שמירת כל רשומה ותחנה אחרונה
+	// 📝 Save each record and timestamp
 	for _, record := range records {
 		if record == nil || record.Parsed == nil || record.LogTime.Before(lastTS) {
 			continue
@@ -116,53 +108,4 @@ func main() {
 
 	<-done
 	fmt.Println("🎉 Simulation completed!")
-
-	/*
-		// 📝 Create SQL file
-		f, err := os.Create("output.sql")
-		if err != nil {
-			log.Fatal(err)
-		}
-		defer f.Close()
-
-		// 🔁 Format, write, and send each query
-		count := 0
-		for _, record := range records {
-			if record == nil || record.Parsed == nil {
-				continue
-			}
-
-			// 🏷 Override table name if provided
-			if overrideTable != "" {
-				record.Parsed.TableName = overrideTable
-			}
-
-			result, err := sqlFormatter.Format(record.Parsed)
-			if err != nil {
-				log.Printf("⚠️ Format error: %v", err)
-				continue
-			}
-
-			raw, _ := result.(string)
-			pretty := Formatter.PrettySQL(raw)
-
-			// Write to file
-			_, err = f.WriteString(pretty + "\n\n")
-			if err != nil {
-				log.Fatalf("❌ Failed to write to file: %v", err)
-			}
-
-			// Send to BigQuery
-			duration, jobID, err := runner.RunRawQuery(ctx, raw)
-			if err != nil {
-				log.Printf("❌ Failed to execute query: %v", err)
-				continue
-			}
-			log.Printf("✅ Query succeeded | Duration: %s | Job ID: %s", duration, jobID)
-
-			count++
-		}
-
-		log.Printf("🎉 All done! %d queries written and sent to BigQuery", count)
-	*/
 }

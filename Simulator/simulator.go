@@ -6,7 +6,6 @@ import (
 	"sort"
 	"sync"
 	"time"
-
 	"github.com/HadasAmar/analytics-load-tool/Formatter"
 	"github.com/HadasAmar/analytics-load-tool/Model"
 	"github.com/HadasAmar/analytics-load-tool/Runner"
@@ -61,104 +60,86 @@ func ReplaySpeedup(delay time.Duration, speedup float64) time.Duration {
 	return adjusted
 }
 
-// SimulateReplayWithControl simulates events with delay and allows command control (pause/resume/stop)
-func SimulateReplayWithControl(
+// SimulateReplay simulates events with delay
+func SimulateReplaySimple(
 	records []*Model.ParsedRecord,
-	commands chan string,
 	sqlFormatter Formatter.Formatter,
 	runner Runner.QueryRunner,
 	ctx context.Context,
 	overrideTable string,
 	wg *sync.WaitGroup,
 ) error {
+	// calculate replay events
 	events, err := CalculateReplayEvents(records)
 	if err != nil {
 		return err
 	}
+	if len(events) == 0 {
+		fmt.Println("No events to replay.")
+		return nil
+	}
 
+	// get the speed factor from configuration
 	speed := configuration.GetSpeedFactorValue()
-	paused := false
 
+	// basic time from log+ the start of the simulation
 	baseTime := events[0].Timestamp
 	simStart := time.Now()
 
 	for i, event := range events {
-		// calculate adjusted time based on speedup
+		// calculate the adjusted delay based on the speed factor
 		elapsed := event.Timestamp.Sub(baseTime)
 		adjusted := ReplaySpeedup(elapsed, speed)
+
+		// when to run the event
 		targetTime := simStart.Add(adjusted)
 
-		// wait until the target time
+		// how long to wait until the target time
 		wait := time.Until(targetTime)
 		if wait > 0 {
 			time.Sleep(wait)
 		}
 
-		// print event details
+		// print the event details
 		now := time.Now().Format("15:04:05.000")
-		fmt.Printf("[%s] 🕒 Event %d | ORIGINAL delay: %v ms | ADJUSTED: %v ms\n",
+		fmt.Printf("[%s] 🕒 Event %d | ORIGINAL: %v ms | ADJUSTED: %v ms\n",
 			now, i, event.Delay.Milliseconds(), ReplaySpeedup(event.Delay, speed).Milliseconds())
 
-	waitLoop:
-		for {
-			select {
-			case cmd := <-commands:
-				switch cmd {
-				case "pause":
-					fmt.Println("⏸ simulation paused")
-					paused = true
-				case "resume":
-					fmt.Println("▶️ simulation resumed")
-					paused = false
-				case "stop":
-					fmt.Println("🛑 simulation stopped")
-					return nil
-				}
-			default:
-				if paused {
-					time.Sleep(200 * time.Millisecond)
-					continue
-				}
-
-				rec := event.Payload
-				if rec == nil || rec.Parsed == nil {
-					break waitLoop
-				}
-
-				if overrideTable != "" {
-					rec.Parsed.TableName = overrideTable
-				}
-
-				wg.Add(1)
-				go func(rec *Model.ParsedRecord, i int) {
-					defer wg.Done()
-					fmt.Printf("Running SQL Query for Event %d\n", i)
-
-					result, err := sqlFormatter.Format(rec.Parsed)
-					if err != nil {
-						fmt.Printf("⚠️ Format error: %v\n", err)
-						return
-					}
-
-					raw, ok := result.(string)
-					if !ok {
-						fmt.Println("⚠️ Failed to cast formatted query to string")
-						return
-					}
-
-					duration, jobID, err := runner.RunRawQuery(ctx, raw)
-					if err != nil {
-						fmt.Printf("❌ Query failed: %v\n", err)
-					} else {
-						fmt.Printf("✅ Query succeeded | Duration: %s | Job ID: %s\n", duration, jobID)
-					}
-				}(rec, i)
-
-				break waitLoop
-			}
+		// send the event payload to the formatter
+		rec := event.Payload
+		if rec == nil || rec.Parsed == nil {
+			continue
 		}
-	}
+		if overrideTable != "" {
+			rec.Parsed.TableName = overrideTable
+		}
 
+		wg.Add(1)
+		go func(rec *Model.ParsedRecord, i int) {
+			defer wg.Done()
+
+			// parse the query using the formatter
+			result, err := sqlFormatter.Format(rec.Parsed)
+			if err != nil {
+				fmt.Printf("⚠️ Format error: %v\n", err)
+				return
+			}
+
+			raw, ok := result.(string)
+			if !ok {
+				fmt.Println("⚠️ Failed to cast formatted query to string")
+				return
+			}
+
+			// sending the query to BigQuery
+			duration, jobID, err := runner.RunRawQuery(ctx, raw)
+			if err != nil {
+				fmt.Printf("❌ Query failed: %v\n", err)
+			} else {
+				fmt.Printf("✅ Query succeeded | Duration: %s | Job ID: %s\n", duration, jobID)
+			}
+		}(rec, i)
+	}
 	return nil
 }
 
@@ -211,3 +192,5 @@ func SimulateReplayInGroups(records []*Model.ParsedRecord, commands chan string,
 	}
 	return nil
 }
+
+

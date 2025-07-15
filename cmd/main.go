@@ -78,93 +78,22 @@ func main() {
 	var sqlFormatter Formatter.Formatter = &Formatter.SQLFormatter{}
 
 	// ▶️ Simulate replay in background
-	var wg sync.WaitGroup
-	commands := make(chan string)
-	done := make(chan struct{})
-
-	go func() {
-		err := Simulator.SimulateReplayWithControl(records, commands, sqlFormatter, runner, ctx, overrideTable, &wg)
-		if err != nil {
-			fmt.Printf("❌ Simulation error: %v\n", err)
-		}
-		wg.Wait()
-		close(done)
-	}()
-
-	// 🕹️ Control loop for commands
-	go func() {
-		for {
-			var input string
-			fmt.Println("Enter command [pause/resume/stop]:")
-			fmt.Scanln(&input)
-			if input == "stop" {
-				commands <- "stop"
-				return
-			}
-			if input == "pause" || input == "resume" {
-				commands <- input
-			}
-		}
-	}()
-
-	// שמירת כל רשומה ותחנה אחרונה
-	for _, record := range records {
-		if record == nil || record.Parsed == nil || record.LogTime.Before(lastTS) {
-			continue
-		}
-		_ = logger.SaveLog(record)
-		_ = logger.SaveLastProcessedTimestamp(record.LogTime)
+	wg := sync.WaitGroup{}
+	err = Simulator.SimulateReplaySimple(records, sqlFormatter, runner, ctx, overrideTable, &wg)
+	if err != nil {
+		log.Fatalf("❌ Simulation failed: %v", err)
 	}
+	wg.Wait()
+  
+// 	// שמירת כל רשומה ותחנה אחרונה
+// 	for _, record := range records {
+// 		if record == nil || record.Parsed == nil || record.LogTime.Before(lastTS) {
+// 			continue
+// 		}
+// 		_ = logger.SaveLog(record)
+// 		_ = logger.SaveLastProcessedTimestamp(record.LogTime)
+// 	}
 
-	<-done
+// 	<-done
 	fmt.Println("🎉 Simulation completed!")
-
-	/*
-		// 📝 Create SQL file
-		f, err := os.Create("output.sql")
-		if err != nil {
-			log.Fatal(err)
-		}
-		defer f.Close()
-
-		// 🔁 Format, write, and send each query
-		count := 0
-		for _, record := range records {
-			if record == nil || record.Parsed == nil {
-				continue
-			}
-
-			// 🏷 Override table name if provided
-			if overrideTable != "" {
-				record.Parsed.TableName = overrideTable
-			}
-
-			result, err := sqlFormatter.Format(record.Parsed)
-			if err != nil {
-				log.Printf("⚠️ Format error: %v", err)
-				continue
-			}
-
-			raw, _ := result.(string)
-			pretty := Formatter.PrettySQL(raw)
-
-			// Write to file
-			_, err = f.WriteString(pretty + "\n\n")
-			if err != nil {
-				log.Fatalf("❌ Failed to write to file: %v", err)
-			}
-
-			// Send to BigQuery
-			duration, jobID, err := runner.RunRawQuery(ctx, raw)
-			if err != nil {
-				log.Printf("❌ Failed to execute query: %v", err)
-				continue
-			}
-			log.Printf("✅ Query succeeded | Duration: %s | Job ID: %s", duration, jobID)
-
-			count++
-		}
-
-		log.Printf("🎉 All done! %d queries written and sent to BigQuery", count)
-	*/
 }

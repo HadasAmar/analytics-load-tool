@@ -1,19 +1,30 @@
 apiVersion: apps/v1
 kind: Deployment
 metadata:
-  name: hello-minikube
+  name: loadtool
 spec:
   replicas: 1
   selector:
     matchLabels:
-      app: hello-minikube
+      app: loadtool
   template:
     metadata:
       labels:
-        app: hello-minikube
+        app: loadtool
     spec:
       containers:
-      - name: hello-minikube
-        image: kicbase/echo-server:1.0
-        ports:
-        - containerPort: 8080
+        - name: loadtool
+          image: analytics-load-tool:latest
+          imagePullPolicy: Never
+          command: ["/app/loadtool"]
+          args: ["druid-demo.log", "My_Try.loadtool_logs"]
+          ports:
+            - containerPort: 8080
+          volumeMounts:
+            - name: log-volume
+              mountPath: /app/druid-demo.log
+              subPath: druid-demo.log
+      volumes:
+        - name: log-volume
+          configMap:
+            name: log-config

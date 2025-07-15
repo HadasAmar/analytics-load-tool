@@ -1,14 +1,12 @@
 FROM golang:1.24.4 AS builder
-
 WORKDIR /app
-
 COPY . .
+RUN go build -o loadtool ./cmd/main.go
 
-RUN go build -o main ./cmd
-
-# שלב 2
-FROM debian:bookworm-slim
+FROM gcr.io/distroless/base
 WORKDIR /app
-COPY --from=builder /app/main .
-EXPOSE 8080
-CMD ["./main"]
+COPY --from=builder /app/loadtool .
+COPY druid-demo.log .
+COPY credentials.json .
+
+CMD ["/app/loadtool", "./druid-demo.log", "My_Try.loadtool_logs"]

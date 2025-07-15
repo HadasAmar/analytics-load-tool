@@ -33,32 +33,24 @@ func (r *BigQueryRunner) RunRawQuery(ctx context.Context, queryStr string) (time
 	if queryStr == "" {
 		return 0, "", fmt.Errorf("query string is empty – cannot run")
 	}
-
 	query := r.BQClient.Query(queryStr)
 
 	// Record the start time
 	start := time.Now()
-
 	job, err := query.Run(ctx)
 	if err != nil {
 		return 0, "", fmt.Errorf("failed to run raw query: %w", err)
 	}
-
 	status, err := job.Wait(ctx)
-
-	
 
 	// Calculate duration
 	duration := time.Since(start)
-
 	if err != nil {
 		return duration, "", fmt.Errorf("job wait failed: %w", err)
 	}
 	if status.Err() != nil {
 		return duration, "", fmt.Errorf("job execution error: %w", status.Err())
 	}
-
-	
 
 	// Return duration and job ID on success
 	return duration, job.ID(), nil

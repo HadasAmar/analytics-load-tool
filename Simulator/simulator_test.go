@@ -62,53 +62,6 @@ func TestReplaySpeedup(t *testing.T) {
 	}
 }
 
-// func TestSimulateReplayWithoutPause(t *testing.T) {
-// 	records := []*Model.ParsedRecord{
-// 		{LogTime: parseTime(t, "2024-05-01T10:00:00Z"), IP: "1.1.1.1"},
-// 		{LogTime: parseTime(t, "2024-05-01T10:00:01Z"), IP: "1.1.1.2"},
-// 		{LogTime: parseTime(t, "2024-05-01T10:00:02Z"), IP: "1.1.1.3"},
-// 	}
-
-// 	commands := make(chan string)
-// 	start := time.Now()
-// 	err := SimulateReplayWithControl(records, commands)
-// 	if err != nil {
-// 		t.Errorf("error: %v", err)
-// 	}
-// 	elapsed := time.Since(start)
-// 	if elapsed < time.Second {
-// 		t.Errorf("expected a delay, got %v", elapsed)
-// 	}
-// }
-
-// func TestSimulateReplayWithPauseResume(t *testing.T) {
-// 	records := []*Model.ParsedRecord{
-// 		{LogTime: parseTime(t, "2024-05-01T10:00:00Z"), IP: "1.1.1.1"},
-// 		{LogTime: parseTime(t, "2024-05-01T10:00:01Z"), IP: "1.1.1.2"},
-// 		{LogTime: parseTime(t, "2024-05-01T10:00:02Z"), IP: "1.1.1.3"},
-// 	}
-
-// 	commands := make(chan string)
-
-// 	go func() {
-// 		time.Sleep(100 * time.Millisecond)
-// 		commands <- "pause"
-// 		t.Log("sent pause")
-// 		time.Sleep(300 * time.Millisecond)
-// 		commands <- "resume"
-// 		t.Log("sent resume")
-// 		time.Sleep(200 * time.Millisecond)
-// 		commands <- "stop"
-// 		t.Log("sent stop")
-// 	}()
-
-// 	err := SimulateReplayWithControl(records, commands)
-// 	if err != nil {
-// 		t.Errorf("error: %v", err)
-// 	}
-// }
-
-// // ✅ New test to check parallel execution for same timestamps
 // func TestSimulateReplayInGroups_ParallelExecution(t *testing.T) {
 // 	now := time.Now().UTC()
 // 	records := []*Model.ParsedRecord{

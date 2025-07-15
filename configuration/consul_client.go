@@ -8,7 +8,7 @@ type ConsulClient struct {
 	client *api.Client
 }
 
-// Function to create a connection to a consul and return a ready-to-use consul client.
+// Function to create a connection and return consul client
 func NewConsulClient(address string) (*ConsulClient, error) {
 	config := api.DefaultConfig()
 	if address != "" {
@@ -37,3 +37,4 @@ func (c *ConsulClient) GetRawValue(key string) (string, error) {
 
 	return string(pair.Value), nil
 }
+

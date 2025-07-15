@@ -4,14 +4,15 @@ import (
 	"context"
 	"fmt"
 	"log"
-	// "os"
 	"sync"
+	"time"
 
 	"github.com/HadasAmar/analytics-load-tool/Formatter"
 	"github.com/HadasAmar/analytics-load-tool/Reader"
 	"github.com/HadasAmar/analytics-load-tool/Runner"
 	"github.com/HadasAmar/analytics-load-tool/Simulator"
 	"github.com/HadasAmar/analytics-load-tool/configuration"
+	mongoLogger "github.com/HadasAmar/analytics-load-tool/mongo"
 )
 
 func main() {
@@ -31,11 +32,29 @@ func main() {
 		log.Fatalf("❌ Failed to get override table from Consul: %v", err)
 	}
 	// write a value to Consul for testing
-err = configuration.GlobalConsulClient.PutRawValue("loadtool/config/Recently_touched_index", "we need to enter somthing")
-if err != nil {
-    log.Fatalf("❌ Failed to write to Consul: %v", err)
-}
-log.Println("✅ Value written to Consul successfully!")
+	err = configuration.GlobalConsulClient.PutRawValue("loadtool/config/Recently_touched_index", "we need to enter somthing")
+	if err != nil {
+		log.Fatalf("❌ Failed to write to Consul: %v", err)
+	}
+	log.Println("✅ Value written to Consul successfully!")
+
+	// 🟣 Init MongoDB logger
+	logger, err := mongoLogger.NewMongoLogger(
+		"mongodb+srv://shilat3015:sh0533143015@cluster0.q7ov2xk.mongodb.net",
+		"logsdb",
+		"records",
+		"progress",
+	)
+	if err != nil {
+		log.Fatalf("❌ Failed to connect to MongoDB: %v", err)
+	}
+
+	// ⏱ Fetch last processed timestamp
+	lastTS, err := logger.GetLastProcessedTimestamp()
+	if err != nil {
+		log.Fatalf("❌ Failed to get last processed timestamp: %v", err)
+	}
+	log.Printf("⏱ Resuming from: %s", lastTS.Format(time.RFC3339))
 
 	// 📥 Read records from file
 	records, err := Reader.ReadLogFile(logFile)
@@ -62,14 +81,11 @@ log.Println("✅ Value written to Consul successfully!")
 	done := make(chan struct{})
 
 	go func() {
-
 		err := Simulator.SimulateReplayWithControl(records, commands, sqlFormatter, runner, ctx, overrideTable, &wg)
-
-		// err := Simulator.SimulateReplayInGroups(records, commands, 2.0)
 		if err != nil {
 			fmt.Printf("❌ Simulation error: %v\n", err)
 		}
-		wg.Wait() // Wait for all goroutines to finish
+		wg.Wait()
 		close(done)
 	}()
 
@@ -88,6 +104,15 @@ log.Println("✅ Value written to Consul successfully!")
 			}
 		}
 	}()
+
+	// שמירת כל רשומה ותחנה אחרונה
+	for _, record := range records {
+		if record == nil || record.Parsed == nil || record.LogTime.Before(lastTS) {
+			continue
+		}
+		_ = logger.SaveLog(record)
+		_ = logger.SaveLastProcessedTimestamp(record.LogTime)
+	}
 
 	<-done
 	fmt.Println("🎉 Simulation completed!")

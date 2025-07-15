@@ -30,7 +30,8 @@ func main() {
 	if err != nil {
 		log.Fatalf("❌ Failed to get override table from Consul: %v", err)
 	}
-err = configuration.PutRawValue("loadtool/config/override_table", "My_Try.loadtool_logs")
+	// write a value to Consul for testing
+err = configuration.GlobalConsulClient.PutRawValue("loadtool/config/Recently_touched_index", "we need to enter somthing")
 if err != nil {
     log.Fatalf("❌ Failed to write to Consul: %v", err)
 }

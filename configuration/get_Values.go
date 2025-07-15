@@ -73,3 +73,29 @@ func GetOutputLanguage(client *ConsulClient) (string, error) {
 
 	return value, nil
 }
+// GetLogFilePath retrieves the log file path from Consul.
+func GetLogFilePath(client *ConsulClient) (string, error) {
+    key := "loadtool/config/file_path"
+    value, err := client.GetRawValue(key)
+    if err != nil {
+        return "", fmt.Errorf("error reading from Consul: %w", err)
+    }
+    if value == "" {
+        return "", fmt.Errorf("file_path not found in Consul")
+    }
+    return value, nil
+}
+// GetOverrideTable retrieves the override table name from Consul.
+func GetOverrideTable(client *ConsulClient) (string, error) {
+    key := "loadtool/config/override_table"
+    value, err := client.GetRawValue(key)
+    if err != nil {
+        return "", fmt.Errorf("error reading from Consul: %w", err)
+    }
+
+    if value == "" {
+        return "", fmt.Errorf("override_table not found in Consul")
+    }
+
+    return value, nil
+}

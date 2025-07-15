@@ -1,10 +1,10 @@
-// main.go
 package main
 
 import (
 	"context"
+	"fmt"
 	"log"
-	"os"
+	// "os"
 	"sync"
 
 	"github.com/HadasAmar/analytics-load-tool/Formatter"
@@ -12,21 +12,30 @@ import (
 	"github.com/HadasAmar/analytics-load-tool/Runner"
 	"github.com/HadasAmar/analytics-load-tool/Simulator"
 	"github.com/HadasAmar/analytics-load-tool/configuration"
-	mongoLogger "github.com/HadasAmar/analytics-load-tool/mongo"
 )
 
 func main() {
-	// 🟡 Expect CLI args: <log_file> <override_table_name>
-	if len(os.Args) < 3 {
-		log.Fatal("Usage: go run ./cmd/main.go <log_file> <override_table>")
-	}
-	logFile :=
-
-
-	// 🔧 Initialize Consul (optional)
+	// initialize Consul
 	if err := configuration.InitGlobalConsul(); err != nil {
 		log.Fatalf("❌ Failed to initialize Consul: %v", err)
 	}
+
+	// get log file path from Consul
+	logFile, err := configuration.GetLogFilePath(configuration.GlobalConsulClient)
+	if err != nil {
+		log.Fatalf("❌ Failed to get log file path from Consul: %v", err)
+	}
+	// get override table name from Consul
+	overrideTable, err := configuration.GetOverrideTable(configuration.GlobalConsulClient)
+	if err != nil {
+		log.Fatalf("❌ Failed to get override table from Consul: %v", err)
+	}
+	// write a value to Consul for testing
+err = configuration.GlobalConsulClient.PutRawValue("loadtool/config/Recently_touched_index", "we need to enter somthing")
+if err != nil {
+    log.Fatalf("❌ Failed to write to Consul: %v", err)
+}
+log.Println("✅ Value written to Consul successfully!")
 
 	// 📥 Read records from file
 	records, err := Reader.ReadLogFile(logFile)
@@ -132,4 +141,3 @@ func main() {
 		log.Printf("🎉 All done! %d queries written and sent to BigQuery", count)
 	*/
 }
-

@@ -7,6 +7,13 @@ import (
 	"github.com/HadasAmar/analytics-load-tool/Model"
 )
 
+type SQLFormatter struct{}
+
+func (f *SQLFormatter) Format(rec *Model.ParsedQuery) (FormattedRecord, error) {
+	return BuildSQLQuery(rec), nil
+}
+
+// BuildSQLQuery builds a BigQuery-compatible SQL query
 func BuildSQLQuery(pq *Model.ParsedQuery) string {
 	if pq == nil {
 		return ""
@@ -21,18 +28,22 @@ func BuildSQLQuery(pq *Model.ParsedQuery) string {
 			selectClause = append(selectClause, field)
 		}
 	}
+
 	for _, agg := range pq.Aggregations {
-		if _, exists := selectSet[agg]; !exists {
-			selectSet[agg] = struct{}{}
-			selectClause = append(selectClause, agg)
+		converted := convertDruidFuncToSQL(agg)
+		if _, exists := selectSet[converted]; !exists {
+			selectSet[converted] = struct{}{}
+			selectClause = append(selectClause, converted)
 		}
 	}
+
 	for _, p := range pq.PostAggregations {
 		expr := p.Expression
 		if expr == "" {
 			expr = p.FieldName
 		}
 		if expr != "" {
+			expr = convertDruidFuncToSQL(expr)
 			formatted := fmt.Sprintf("%s AS %s", expr, p.Name)
 			if _, exists := selectSet[formatted]; !exists {
 				selectSet[formatted] = struct{}{}
@@ -64,7 +75,7 @@ func BuildSQLQuery(pq *Model.ParsedQuery) string {
 
 	if pq.Having != nil {
 		if having := HavingToSQL(pq.Having); having != "" {
-			query += fmt.Sprintf(" HAVING %s", having)
+			query += fmt.Sprintf(" HAVING %s", convertDruidFuncToSQL(having))
 		}
 	}
 
@@ -90,4 +101,23 @@ func BuildSQLQuery(pq *Model.ParsedQuery) string {
 	}
 
 	return query
+}
+
+// convertDruidFuncToSQL replaces Druid-style functions with BigQuery-compatible ones
+func convertDruidFuncToSQL(expr string) string {
+	replacements := map[string]string{
+		"longSum":     "SUM",
+		"doubleSum":   "SUM",
+		"longMin":     "MIN",
+		"doubleMin":   "MIN",
+		"longMax":     "MAX",
+		"doubleMax":   "MAX",
+		"hyperUnique": "APPROX_COUNT_DISTINCT",
+		"count":       "COUNT",
+	}
+
+	for druidFunc, sqlFunc := range replacements {
+		expr = strings.ReplaceAll(expr, druidFunc+"(", sqlFunc+"(")
+	}
+	return expr
 }

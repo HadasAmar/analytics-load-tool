@@ -31,13 +31,7 @@ func main() {
 	if err != nil {
 		log.Fatalf("❌ Failed to get override table from Consul: %v", err)
 	}
-	// write a value to Consul for testing
-	err = configuration.GlobalConsulClient.PutRawValue("loadtool/config/Recently_touched_index", "we need to enter somthing")
-	if err != nil {
-		log.Fatalf("❌ Failed to write to Consul: %v", err)
-	}
-	log.Println("✅ Value written to Consul successfully!")
-
+	
 	// 🟣 Init MongoDB logger
 	logger, err := mongoLogger.NewMongoLogger(
 		"mongodb+srv://shilat3015:sh0533143015@cluster0.q7ov2xk.mongodb.net",
@@ -55,6 +49,14 @@ func main() {
 		log.Fatalf("❌ Failed to get last processed timestamp: %v", err)
 	}
 	log.Printf("⏱ Resuming from: %s", lastTS.Format(time.RFC3339))
+
+	// write a value to Consul for testing
+	err = configuration.GlobalConsulClient.PutRawValue("loadtool/config/Recently_touched_index", lastTS.GoString())
+	if err != nil {
+		log.Fatalf("❌ Failed to write to Consul: %v", err)
+	}
+	log.Println("✅ Value written to Consul successfully!")
+
 
 	// 📥 Read records from file
 	records, err := Reader.ReadLogFile(logFile)

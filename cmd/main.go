@@ -25,16 +25,18 @@ func main() {
 	logFile, err := configuration.GetLogFilePath(configuration.GlobalConsulClient)
 	if err != nil {
 		log.Fatalf("❌ Failed to get log file path from Consul: %v", err)
+		// logFile = "druid-demo.log" // fallback to default if not set
 	}
 	// get override table name from Consul
 	overrideTable, err := configuration.GetOverrideTable(configuration.GlobalConsulClient)
 	if err != nil {
-		log.Fatalf("❌ Failed to get override table from Consul: %v", err)
+		// log.Fatalf("❌ Failed to get override table from Consul: %v", err)
+		overrideTable = "My_Try.loadtool_logs" // fallback to default if not set
 	}
-	
+
 	// 🟣 Init MongoDB logger
 	logger, err := mongoLogger.NewMongoLogger(
-		"mongodb+srv://shilat3015:sh0533143015@cluster0.q7ov2xk.mongodb.net",
+		"mongodb+srv://shilat3015:sh0533143015@cluster0.q7ov2xk.mongodb.net/?tlsInsecure=true",
 		"logsdb",
 		"records",
 		"progress",
@@ -56,7 +58,6 @@ func main() {
 		log.Fatalf("❌ Failed to write to Consul: %v", err)
 	}
 	log.Println("✅ Value written to Consul successfully!")
-
 
 	// 📥 Read records from file
 	records, err := Reader.ReadLogFile(logFile)
@@ -84,16 +85,16 @@ func main() {
 		log.Fatalf("❌ Simulation failed: %v", err)
 	}
 	wg.Wait()
-  
-// 	// שמירת כל רשומה ותחנה אחרונה
-// 	for _, record := range records {
-// 		if record == nil || record.Parsed == nil || record.LogTime.Before(lastTS) {
-// 			continue
-// 		}
-// 		_ = logger.SaveLog(record)
-// 		_ = logger.SaveLastProcessedTimestamp(record.LogTime)
-// 	}
 
-// 	<-done
+	// שמירת כל רשומה ותחנה אחרונה
+	for _, record := range records {
+		if record == nil || record.Parsed == nil || record.LogTime.Before(lastTS) {
+			continue
+		}
+		_ = logger.SaveLog(record)
+		_ = logger.SaveLastProcessedTimestamp(record.LogTime)
+	}
+
+	// <-done
 	fmt.Println("🎉 Simulation completed!")
 }

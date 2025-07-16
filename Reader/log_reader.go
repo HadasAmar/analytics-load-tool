@@ -2,6 +2,7 @@ package Reader
 
 import (
 	"bufio"
+	"fmt"
 	"os"
 	"strings"
 
@@ -10,6 +11,7 @@ import (
 
 // ReadLogFile reads a .log file and returns a list of ParsedRecord
 func ReadLogFile(filename string) ([]*Model.ParsedRecord, error) {
+	fmt.Printf("Reading log file: %s\n", filename)
 	file, err := os.Open(filename)
 	if err != nil {
 		return nil, err

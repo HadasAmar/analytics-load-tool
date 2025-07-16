@@ -1,12 +1,23 @@
+# שלב הבנייה
 FROM golang:1.24.4 AS builder
+
 WORKDIR /app
+
 COPY . .
-RUN go build -o loadtool ./cmd/main.go
+RUN go mod vendor
+RUN go build -mod=vendor -o main ./cmd
 
-FROM gcr.io/distroless/base
+# שלב ההרצה
+FROM debian:bookworm-slim
+
 WORKDIR /app
-COPY --from=builder /app/loadtool .
-COPY druid-demo.log .
-COPY credentials.json .
 
-CMD ["/app/loadtool", "./druid-demo.log", "My_Try.loadtool_logs"]
+RUN apt-get update && apt-get install -y ca-certificates
+
+COPY --from=builder /app/main .
+COPY ./credentials.json .
+COPY ./druid-demo.log .
+
+EXPOSE 8080
+
+CMD ["./main"]

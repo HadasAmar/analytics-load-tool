@@ -6,6 +6,7 @@ import (
 	"sort"
 	"sync"
 	"time"
+
 	"github.com/HadasAmar/analytics-load-tool/Formatter"
 	"github.com/HadasAmar/analytics-load-tool/Model"
 	"github.com/HadasAmar/analytics-load-tool/Runner"
@@ -192,5 +193,3 @@ func SimulateReplayInGroups(records []*Model.ParsedRecord, commands chan string,
 	}
 	return nil
 }
-
-

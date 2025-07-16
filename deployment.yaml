@@ -1,7 +1,7 @@
 apiVersion: apps/v1
 kind: Deployment
 metadata:
-  name: loadtool
+  name: loadtool-deployment
 spec:
   replicas: 1
   selector:
@@ -14,17 +14,10 @@ spec:
     spec:
       containers:
         - name: loadtool
-          image: analytics-load-tool:latest
-          imagePullPolicy: Never
-          command: ["/app/loadtool"]
-          args: ["druid-demo.log", "My_Try.loadtool_logs"]
+          image: loadtool:latest
+          imagePullPolicy: IfNotPresent
           ports:
             - containerPort: 8080
-          volumeMounts:
-            - name: log-volume
-              mountPath: /app/druid-demo.log
-              subPath: druid-demo.log
-      volumes:
-        - name: log-volume
-          configMap:
-            name: log-config
+          env:
+            - name: CONSUL_ADDRESS
+              value: "http://host.docker.internal:8500"

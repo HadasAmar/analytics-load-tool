@@ -80,7 +80,12 @@ func SimulateReplaySimple(
 		return nil
 	}
 
-	// get the speed factor from configuration
+	if len(events) == 0 {
+		fmt.Println("⚠️ No valid events to replay")
+		return nil
+	}
+
+
 	speed := configuration.GetSpeedFactorValue()
 
 	// basic time from log+ the start of the simulation
@@ -143,6 +148,7 @@ func SimulateReplaySimple(
 	}
 	return nil
 }
+
 
 // SimulateReplayInGroups runs SimulateReplayWithControl in parallel for each group of events with the same timestamp
 func SimulateReplayInGroups(records []*Model.ParsedRecord, commands chan string, speedup float64) error {

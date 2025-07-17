@@ -28,7 +28,13 @@ func ReadLogFile(filename string) ([]*Model.ParsedRecord, error) {
 			continue
 		}
 
-		record := ParseRawRecord(parts[0], parts[1], parts[2])
+		record := &Model.ParsedRecord{
+	LogTime: parseTime(parts[0]),
+	IP:      parts[1],
+	Query:   parts[2],
+	Parsed:  nil,
+}
+
 		if record != nil && record.Parsed != nil {
 			result = append(result, record)
 		}

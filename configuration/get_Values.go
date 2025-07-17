@@ -26,14 +26,14 @@ func GetSpeedFactor(client *ConsulClient) (string, error) {
 func GetSpeedFactorValue() float64 {
 	raw, err := GetSpeedFactor(GlobalConsulClient)
 	if err != nil {
-		log.Printf("⚠️ error: %v", err)
+		log.Printf("error: %v", err)
 		return 1.0 //default value if there's an error
 	}
 
 	clean := strings.TrimSpace(raw)
 	speed, err := strconv.ParseFloat(clean, 64)
 	if err != nil {
-		log.Printf("⚠️ invalid float: %v", err)
+		log.Printf("invalid float: %v", err)
 		return 1.0
 	}
 

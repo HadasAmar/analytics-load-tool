@@ -25,7 +25,6 @@ func main() {
 	logFile, err := configuration.GetLogFilePath(configuration.GlobalConsulClient)
 	if err != nil {
 		log.Fatalf("❌ Failed to get log file path from Consul: %v", err)
-		// logFile = "druid-demo.log" // fallback to default if not set
 	}
 	// get override table name from Consul
 	overrideTable, err := configuration.GetOverrideTable(configuration.GlobalConsulClient)
@@ -65,36 +64,37 @@ func main() {
 		log.Fatalf("❌ Failed to read records: %v", err)
 	}
 
-	// ☁️ Init BigQuery runner
+	// Init BigQuery runner
 	ctx := context.Background()
 	projectID := "platform-hackaton-2025"
 	credsPath := "./credentials.json"
 
 	runner, err := Runner.NewBigQueryRunner(ctx, projectID, credsPath)
 	if err != nil {
-		log.Fatalf("❌ Could not create BigQuery client: %v", err)
+		log.Fatalf("Could not create BigQuery client: %v", err)
 	}
 
-	// 🧱 Create SQL formatter
+	// Create SQL formatter
 	var sqlFormatter Formatter.Formatter = &Formatter.SQLFormatter{}
 
 	// ▶️ Simulate replay in background
 	wg := sync.WaitGroup{}
 	err = Simulator.SimulateReplaySimple(records, sqlFormatter, runner, ctx, overrideTable, &wg)
 	if err != nil {
-		log.Fatalf("❌ Simulation failed: %v", err)
+		log.Fatalf("Simulation failed: %v", err)
 	}
 	wg.Wait()
 
+	fmt.Println("🎉 Simulation completed!")
+
 	// שמירת כל רשומה ותחנה אחרונה
 	for _, record := range records {
-		if record == nil || record.Parsed == nil || record.LogTime.Before(lastTS) {
+		if record == nil || record.Parsed == nil {
 			continue
 		}
+		fmt.Printf("Saving record with timestamp: %s\n", record.LogTime.Format(time.RFC3339))
 		_ = logger.SaveLog(record)
 		_ = logger.SaveLastProcessedTimestamp(record.LogTime)
 	}
 
-	// <-done
-	fmt.Println("🎉 Simulation completed!")
 }

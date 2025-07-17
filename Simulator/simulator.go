@@ -103,7 +103,7 @@ func SimulateReplaySimple(
 
 		// print the event details
 		now := time.Now().Format("15:04:05.000")
-		fmt.Printf("[%s] 🕒 Event %d | ORIGINAL: %v ms | ADJUSTED: %v ms\n",
+		fmt.Printf("[%s] Event %d | ORIGINAL: %v ms | ADJUSTED: %v ms\n",
 			now, i, event.Delay.Milliseconds(), ReplaySpeedup(event.Delay, speed).Milliseconds())
 
 		// send the event payload to the formatter
@@ -122,22 +122,22 @@ func SimulateReplaySimple(
 			// parse the query using the formatter
 			result, err := sqlFormatter.Format(rec.Parsed)
 			if err != nil {
-				fmt.Printf("⚠️ Format error: %v\n", err)
+				fmt.Printf("Format error: %v\n", err)
 				return
 			}
 
 			raw, ok := result.(string)
 			if !ok {
-				fmt.Println("⚠️ Failed to cast formatted query to string")
+				fmt.Println("Failed to cast formatted query to string")
 				return
 			}
 
 			// sending the query to BigQuery
 			duration, jobID, err := runner.RunRawQuery(ctx, raw)
 			if err != nil {
-				fmt.Printf("❌ Query failed: %v\n", err)
+				fmt.Printf("Query failed: %v\n", err)
 			} else {
-				fmt.Printf("✅ Query succeeded | Duration: %s | Job ID: %s\n", duration, jobID)
+				fmt.Printf("Query succeeded | Duration: %s | Job ID: %s\n", duration, jobID)
 			}
 		}(rec, i)
 	}

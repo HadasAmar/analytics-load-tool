@@ -7,10 +7,10 @@ import (
 	"sync"
 	"time"
 
-	"github.com/HadasAmar/analytics-load-tool/Formatter"
 	"github.com/HadasAmar/analytics-load-tool/Model"
 	"github.com/HadasAmar/analytics-load-tool/Runner"
 	"github.com/HadasAmar/analytics-load-tool/configuration"
+	Formatter "github.com/HadasAmar/analytics-load-tool/formatter"
 )
 
 // ReplayEvent represents an event in the simulation.

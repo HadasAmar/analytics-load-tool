@@ -1,19 +1,23 @@
 apiVersion: apps/v1
 kind: Deployment
 metadata:
-  name: hello-minikube
+  name: loadtool-deployment
 spec:
   replicas: 1
   selector:
     matchLabels:
-      app: hello-minikube
+      app: loadtool
   template:
     metadata:
       labels:
-        app: hello-minikube
+        app: loadtool
     spec:
       containers:
-      - name: hello-minikube
-        image: kicbase/echo-server:1.0
-        ports:
-        - containerPort: 8080
+        - name: loadtool
+          image: loadtool:latest
+          imagePullPolicy: IfNotPresent
+          ports:
+            - containerPort: 8080
+          env:
+            - name: CONSUL_ADDRESS
+              value: "http://host.docker.internal:8500"

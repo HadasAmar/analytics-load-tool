@@ -24,10 +24,6 @@ func GetSpeedFactor(client *ConsulClient) (string, error) {
 
 // GetSpeedFactorValue retrieves the speed factor from Consul and returns it as a float64.
 func GetSpeedFactorValue() float64 {
-	if GlobalConsulClient == nil {
-		_ = InitGlobalConsul()
-	}
-
 	raw, err := GetSpeedFactor(GlobalConsulClient)
 	if err != nil {
 		log.Printf("⚠️ error: %v", err)

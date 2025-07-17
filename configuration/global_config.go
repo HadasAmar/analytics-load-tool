@@ -6,6 +6,7 @@ import (
 
 var GlobalConsulClient *ConsulClient
 
+//global function to initialize the Consul client
 func InitGlobalConsul() error {
 	address := os.Getenv("CONSUL_ADDRESS")
 	if address == "" {

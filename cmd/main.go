@@ -25,6 +25,7 @@ func main() {
 	overrideTable, err := configuration.GetOverrideTable(configuration.GlobalConsulClient)
 	if err != nil {
 		log.Fatalf("❌ Failed to get override table: %v", err)
+
 	}
 
 	// 📄 Get log file path and reader from Consul
@@ -39,7 +40,7 @@ func main() {
 
 	// 🔵 Connect to MongoDB
 	logger, err := mongoLogger.NewMongoLogger(
-		"mongodb+srv://shilat3015:sh0533143015@cluster0.q7ov2xk.mongodb.net",
+		"mongodb+srv://shilat3015:sh0533143015@cluster0.q7ov2xk.mongodb.net/?tlsInsecure=true",
 		"logsdb",
 		"records",
 		"progress",
@@ -76,7 +77,6 @@ func main() {
 		log.Fatalf("❌ Failed to get last timestamp: %v", err)
 	}
 	log.Printf("⏱ Resuming from: %s", lastTS.Format(time.RFC3339))
-
 	// 📥 Read from Mongo
 	rawFromMongo, err := logger.ReadLogsAfter(lastTS)
 	if err != nil {
@@ -98,7 +98,6 @@ func main() {
 		log.Fatalf("❌ Failed to init BigQuery: %v", err)
 	}
 	sqlFormatter := &Formatter.SQLFormatter{}
-
 	// ▶️ Simulate
 	var wg sync.WaitGroup
 	commands := make(chan string)
@@ -139,7 +138,6 @@ func main() {
 			latest = record.LogTime
 		}
 	}
-
 	// 💾 Save latest timestamp to Mongo + Consul
 	if !latest.IsZero() {
 		if err := logger.SaveLastProcessedTimestamp(latest); err != nil {

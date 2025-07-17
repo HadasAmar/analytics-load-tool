@@ -21,13 +21,23 @@ func main() {
 		log.Fatalf("❌ Failed to initialize Consul: %v", err)
 	}
 
-	// 🟡 Override table name from Consul
+	// 🟡 Get override table name
 	overrideTable, err := configuration.GetOverrideTable(configuration.GlobalConsulClient)
 	if err != nil {
-		log.Fatalf("❌ Failed to get override table from Consul: %v", err)
+		log.Fatalf("❌ Failed to get override table: %v", err)
 	}
 
-	// 🔵 Init MongoDB logger
+	// 📄 Get log file path and reader from Consul
+	logFilePath, err := configuration.GetLogFilePath(configuration.GlobalConsulClient)
+	if err != nil {
+		log.Fatalf("❌ Failed to get log file path: %v", err)
+	}
+	reader, err := Reader.GetReaderFromConsul(logFilePath, configuration.GlobalConsulClient)
+	if err != nil {
+		log.Fatalf("❌ Failed to get reader from Consul: %v", err)
+	}
+
+	// 🔵 Connect to MongoDB
 	logger, err := mongoLogger.NewMongoLogger(
 		"mongodb+srv://shilat3015:sh0533143015@cluster0.q7ov2xk.mongodb.net",
 		"logsdb",
@@ -38,36 +48,58 @@ func main() {
 		log.Fatalf("❌ Failed to connect to MongoDB: %v", err)
 	}
 
-	// ⏱ Fetch last processed timestamp
-// ⚠️ DEBUG ONLY: משוך את כל הרשומות מהמונגו בלי סינון לפי זמן
-lastTS := time.Time{}
-
-	// 📥 שליפת רשומות ממונגו
-	rawRecords, err := logger.ReadLogsAfter(lastTS)
+	// 📥 Read raw records from file (Parsed=nil)
+	rawRecordsFromFile, err := reader.Read(logFilePath)
 	if err != nil {
-		log.Fatalf("❌ Failed to read records from MongoDB: %v", err)
+		log.Fatalf("❌ Failed to read records from file: %v", err)
 	}
-	log.Printf("📥 Got %d raw records from Mongo", len(rawRecords))
+	log.Printf("📄 Read %d raw records from file", len(rawRecordsFromFile))
 
-	records, err := Reader.ReadParsedRecordsFromMongo(rawRecords)
+	// 💾 Save raw records to Mongo
+	inserted := 0
+	for _, rec := range rawRecordsFromFile {
+		if rec == nil || rec.Query == "" {
+			continue
+		}
+		rec.Parsed = nil
+		if err := logger.SaveLog(rec); err != nil {
+			log.Printf("⚠️ Failed to save record: %v", err)
+			continue
+		}
+		inserted++
+	}
+	log.Printf("✅ Inserted %d raw records to Mongo", inserted)
+
+	// ⏱ Get last processed timestamp
+	lastTS, err := logger.GetLastProcessedTimestamp()
+	if err != nil {
+		log.Fatalf("❌ Failed to get last timestamp: %v", err)
+	}
+	log.Printf("⏱ Resuming from: %s", lastTS.Format(time.RFC3339))
+
+	// 📥 Read from Mongo
+	rawFromMongo, err := logger.ReadLogsAfter(lastTS)
+	if err != nil {
+		log.Fatalf("❌ Failed to read from Mongo: %v", err)
+	}
+	log.Printf("📥 Got %d raw records from Mongo", len(rawFromMongo))
+
+	// 🧠 Parse records
+	records, err := Reader.ReadParsedRecordsFromMongo(rawFromMongo)
 	if err != nil {
 		log.Fatalf("❌ Failed to parse records: %v", err)
 	}
-	log.Printf("✅ Parsed %d records successfully", len(records))
+	log.Printf("✅ Parsed %d records", len(records))
 
-	// ☁️ Init BigQuery runner
+	// ☁️ Init BigQuery
 	ctx := context.Background()
-	projectID := "platform-hackaton-2025"
-	credsPath := "./credentials.json"
-
-	runner, err := Runner.NewBigQueryRunner(ctx, projectID, credsPath)
+	runner, err := Runner.NewBigQueryRunner(ctx, "platform-hackaton-2025", "./credentials.json")
 	if err != nil {
-		log.Fatalf("❌ Could not create BigQuery client: %v", err)
+		log.Fatalf("❌ Failed to init BigQuery: %v", err)
 	}
+	sqlFormatter := &Formatter.SQLFormatter{}
 
-	var sqlFormatter Formatter.Formatter = &Formatter.SQLFormatter{}
-
-	// ▶️ Simulate replay
+	// ▶️ Simulate
 	var wg sync.WaitGroup
 	commands := make(chan string)
 	done := make(chan struct{})
@@ -75,13 +107,13 @@ lastTS := time.Time{}
 	go func() {
 		err := Simulator.SimulateReplayWithControl(records, commands, sqlFormatter, runner, ctx, overrideTable, &wg)
 		if err != nil {
-			fmt.Printf("❌ Simulation error: %v\n", err)
+			log.Printf("❌ Simulation error: %v", err)
 		}
 		wg.Wait()
 		close(done)
 	}()
 
-	// Controller
+	// 🎮 CLI control
 	go func() {
 		for {
 			var input string
@@ -97,13 +129,27 @@ lastTS := time.Time{}
 		}
 	}()
 
-	// 📝 Save each record and timestamp
+	// 📝 Track latest processed timestamp (one single value)
+	var latest time.Time
 	for _, record := range records {
 		if record == nil || record.Parsed == nil || record.LogTime.Before(lastTS) {
 			continue
 		}
-		_ = logger.SaveLog(record)
-		_ = logger.SaveLastProcessedTimestamp(record.LogTime)
+		if record.LogTime.After(latest) {
+			latest = record.LogTime
+		}
+	}
+
+	// 💾 Save latest timestamp to Mongo + Consul
+	if !latest.IsZero() {
+		if err := logger.SaveLastProcessedTimestamp(latest); err != nil {
+			log.Printf("⚠️ Failed to save progress timestamp to Mongo: %v", err)
+		}
+		if err := configuration.GlobalConsulClient.PutRawValue("loadtool/config/Recently_touched_index", latest.GoString()); err != nil {
+			log.Printf("⚠️ Failed to write latest timestamp to Consul: %v", err)
+		} else {
+			log.Println("✅ Saved last timestamp to Consul")
+		}
 	}
 
 	<-done

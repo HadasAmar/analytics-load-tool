@@ -4,6 +4,10 @@ import (	"log"
 	"time"
 
 	"github.com/HadasAmar/analytics-load-tool/Model"
+	"fmt"
+	"strings"
+
+	"github.com/HadasAmar/analytics-load-tool/configuration"
 )
 
 func ReadParsedRecordsFromMongo(rawRecords []*Model.ParsedRecord) ([]*Model.ParsedRecord, error) {
@@ -26,4 +30,21 @@ func ReadParsedRecordsFromMongo(rawRecords []*Model.ParsedRecord) ([]*Model.Pars
 	}
 
 	return parsedRecords, nil
+}
+func GetReaderFromConsul(filename string, client *configuration.ConsulClient) (FileReader, error) {
+	lang, err := configuration.GetInputLanguage(client)
+	if err != nil {
+		return nil, fmt.Errorf("failed to read input_language from Consul: %w", err)
+	}
+
+	switch strings.ToLower(lang) {
+	case "csv":
+		return CSVReader{}, nil
+	case "json":
+		return JSONReader{}, nil
+	case "log":
+		return LogReader{}, nil
+	default:
+		return nil, fmt.Errorf("unsupported input_language: %s", lang)
+	}
 }

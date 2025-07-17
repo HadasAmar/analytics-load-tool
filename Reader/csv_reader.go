@@ -44,7 +44,13 @@ func ReadCSVFile(filename string) ([]*Model.ParsedRecord, error) {
 		ts := obj["log_time"]
 
 		// Create ParsedRecord via ParseRawRecord
-		record := ParseRawRecord(ts, ip, string(jsonBytes))
+		record := &Model.ParsedRecord{
+	LogTime: parseTime(ts),
+	IP:      ip,
+	Query:   string(jsonBytes),
+	Parsed:  nil,
+}
+
 		if record != nil {
 			result = append(result, record)
 		}

@@ -7,7 +7,7 @@ import (
 	"sync"
 	"time"
 
-	"github.com/HadasAmar/analytics-load-tool/Formatter"
+	Formatter"github.com/HadasAmar/analytics-load-tool/formatter"
 	"github.com/HadasAmar/analytics-load-tool/Model"
 	"github.com/HadasAmar/analytics-load-tool/Runner"
 	"github.com/HadasAmar/analytics-load-tool/configuration"

@@ -5,7 +5,7 @@ import (
 	"log"
 	"sync"
 
-	"github.com/HadasAmar/analytics-load-tool/Formatter"
+	Formatter "github.com/HadasAmar/analytics-load-tool/formatter"
 	"github.com/HadasAmar/analytics-load-tool/Reader"
 	"github.com/HadasAmar/analytics-load-tool/Runner"
 	"github.com/HadasAmar/analytics-load-tool/Simulator"

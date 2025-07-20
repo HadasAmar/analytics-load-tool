@@ -1,5 +1,4 @@
-package Formatter
-
+package formatter
 import "github.com/HadasAmar/analytics-load-tool/Model"
 
 type FormattedRecord interface{}

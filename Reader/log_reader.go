@@ -35,7 +35,7 @@ func ReadLogFile(filename string) ([]*Model.ParsedRecord, error) {
 	Parsed:  nil,
 }
 
-		if record != nil && record.Parsed != nil {
+		if record != nil  {
 			result = append(result, record)
 		}
 	}

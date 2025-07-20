@@ -19,11 +19,11 @@ type BigQueryRunner struct {
 func NewBigQueryRunner(ctx context.Context, projectID, credsPath string) (*BigQueryRunner, error) {
 	client, err := bigquery.NewClient(ctx, projectID, option.WithCredentialsFile(credsPath))
 	if err != nil {
-		log.Printf(":x: Failed to create BigQuery client: %v", err)
+		log.Printf("Failed to create BigQuery client: %v", err)
 
 		return nil, fmt.Errorf("failed to create BQ client: %w", err)
 	}
-	fmt.Println(":white_check_mark: BigQuery client created successfully")
+	fmt.Println("BigQuery client created successfully")
 	return &BigQueryRunner{BQClient: client}, nil
 }
 

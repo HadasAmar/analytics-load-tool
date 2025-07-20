@@ -74,7 +74,7 @@ func SimulateReplay(
 		return err
 	}
 
-	speed := configuration.GetSpeedFactorValue()
+	speed := configuration.GetSpeedFactor(configuration.GlobalConsulClient)
 
 	for i, event := range events {
 		

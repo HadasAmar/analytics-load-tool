@@ -65,10 +65,10 @@ func main() {
 	log.Printf("⏱ Resuming from ID: %s", lastID.Hex())
 
 	// Uncomment to delete all records in MongoDB (for testing purposes)
-	// err=logger.DeleteAllRecords()
-	// if err != nil {
-	// 	log.Fatalf("❌ Failed to delete all records: %v", err)
-	// }
+	err=logger.DeleteAllRecords()
+	if err != nil {
+		log.Fatalf("❌ Failed to delete all records: %v", err)
+	}
 
 	// Read raw records from file
 	rawRecordsFromFile, err := reader.Read(logFilePath)

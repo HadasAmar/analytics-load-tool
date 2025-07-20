@@ -4,14 +4,15 @@ import (
 	"context"
 	"fmt"
 	"log"
+	"os"
 	"sync"
 	"time"
 
-	"github.com/HadasAmar/analytics-load-tool/formatter"
 	"github.com/HadasAmar/analytics-load-tool/Reader"
 	"github.com/HadasAmar/analytics-load-tool/Runner"
 	"github.com/HadasAmar/analytics-load-tool/Simulator"
 	"github.com/HadasAmar/analytics-load-tool/configuration"
+	"github.com/HadasAmar/analytics-load-tool/formatter"
 	mongoLogger "github.com/HadasAmar/analytics-load-tool/mongo"
 )
 
@@ -22,8 +23,9 @@ func main() {
 	}
 
 	// get log file path from Consul
-	logFile, err := configuration.GetLogFilePath(configuration.GlobalConsulClient)
-	if err != nil {
+	// logFile, err := configuration.GetLogFilePath(configuration.GlobalConsulClient)
+	logFile, err:=os.Open("/app/druid-demo.log")
+		if err != nil {
 		log.Fatalf("❌ Failed to get log file path from Consul: %v", err)
 		// logFile = "druid-demo.log" // fallback to default if not set
 	}
@@ -60,7 +62,7 @@ func main() {
 	log.Println("✅ Value written to Consul successfully!")
 
 	// 📥 Read records from file
-	records, err := Reader.ReadLogFile(logFile)
+	records, err := Reader.ReadLogFile(logFile.Name())
 	if err != nil {
 		log.Fatalf("❌ Failed to read records: %v", err)
 	}

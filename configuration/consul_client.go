@@ -38,10 +38,3 @@ func (c *ConsulClient) GetRawValue(key string) (string, error) {
 	return string(pair.Value), nil
 }
 
-// General function to write value by key
-func (c *ConsulClient) PutRawValue(key, value string) error {
-    kv := c.client.KV()
-    p := &api.KVPair{Key: key, Value: []byte(value)}
-    _, err := kv.Put(p, nil)
-    return err
-}

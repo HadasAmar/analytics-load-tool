@@ -61,8 +61,7 @@ func ReplaySpeedup(delay time.Duration, speedup float64) time.Duration {
 	return adjusted
 }
 
-// SimulateReplay simulates events with delay
-func SimulateReplaySimple(
+func SimulateReplay(
 	records []*Model.ParsedRecord,
 	sqlFormatter Formatter.Formatter,
 	runner Runner.QueryRunner,
@@ -70,43 +69,21 @@ func SimulateReplaySimple(
 	overrideTable string,
 	wg *sync.WaitGroup,
 ) error {
-	// calculate replay events
 	events, err := CalculateReplayEvents(records)
-	if err != nil {
+	if err != nil || len(events) == 0 {
 		return err
 	}
-	if len(events) == 0 {
-		fmt.Println("No events to replay.")
-		return nil
-	}
 
-	// get the speed factor from configuration
 	speed := configuration.GetSpeedFactorValue()
 
-	// basic time from log+ the start of the simulation
-	baseTime := events[0].Timestamp
-	simStart := time.Now()
-
 	for i, event := range events {
-		// calculate the adjusted delay based on the speed factor
-		elapsed := event.Timestamp.Sub(baseTime)
-		adjusted := ReplaySpeedup(elapsed, speed)
+		
+		time.Sleep(ReplaySpeedup(event.Delay, speed))
 
-		// when to run the event
-		targetTime := simStart.Add(adjusted)
-
-		// how long to wait until the target time
-		wait := time.Until(targetTime)
-		if wait > 0 {
-			time.Sleep(wait)
-		}
-
-		// print the event details
 		now := time.Now().Format("15:04:05.000")
 		fmt.Printf("[%s] Event %d | ORIGINAL: %v ms | ADJUSTED: %v ms\n",
 			now, i, event.Delay.Milliseconds(), ReplaySpeedup(event.Delay, speed).Milliseconds())
 
-		// send the event payload to the formatter
 		rec := event.Payload
 		if rec == nil || rec.Parsed == nil {
 			continue
@@ -119,7 +96,6 @@ func SimulateReplaySimple(
 		go func(rec *Model.ParsedRecord, i int) {
 			defer wg.Done()
 
-			// parse the query using the formatter
 			result, err := sqlFormatter.Format(rec.Parsed)
 			if err != nil {
 				fmt.Printf("Format error: %v\n", err)
@@ -132,7 +108,6 @@ func SimulateReplaySimple(
 				return
 			}
 
-			// sending the query to BigQuery
 			duration, jobID, err := runner.RunRawQuery(ctx, raw)
 			if err != nil {
 				fmt.Printf("Query failed: %v\n", err)

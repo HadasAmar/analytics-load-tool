@@ -4,26 +4,12 @@ import (
 	"fmt"
 	"log"
 	"strconv"
-	"strings"
-
 	"go.mongodb.org/mongo-driver/bson/primitive"
 )
 
-// generic function to retrieve a required string value from Consul
-func GetRequiredString(client *ConsulClient, key string, name string) (string, error) {
-	value, err := client.GetRawValue(key)
-	if err != nil {
-		return "", fmt.Errorf("error reading %s from Consul: %w", name, err)
-	}
-	if strings.TrimSpace(value) == "" {
-		return "", fmt.Errorf("%s not found or empty in Consul", name)
-	}
-	return strings.TrimSpace(value), nil
-}
-
 // generic function to retrieve an integer value from Consul
 func GetIntValue(client *ConsulClient, key string, name string) (int, error) {
-	raw, err := GetRequiredString(client, key, name)
+	raw, err := client.GetRawValue(key)
 	if err != nil {
 		return 0, err
 	}
@@ -34,62 +20,64 @@ func GetIntValue(client *ConsulClient, key string, name string) (int, error) {
 	return n, nil
 }
 
-//generic function to retrieve an ObjectID value from Consul
+func GetFloatValue(client *ConsulClient, key string, name string) (float64, error) {
+	raw, err := client.GetRawValue(key)
+	if err != nil {
+		return 0, err
+	}
+	val, err := strconv.ParseFloat(raw, 64)
+	if err != nil {
+		return 0, fmt.Errorf("invalid %s value: %s", name, raw)
+	}
+	return val, nil
+}
+
+// generic function to retrieve an ObjectID value from Consul
 func GetObjectIDValue(client *ConsulClient, key string, name string) (primitive.ObjectID, error) {
-	raw, err := GetRequiredString(client, key, name)
+	raw, err := client.GetRawValue(key)
 	if err != nil {
 		return primitive.NilObjectID, err
 	}
 	return primitive.ObjectIDFromHex(raw)
 }
 
-// Specific function for retrieving speed_factor
-func GetSpeedFactor(client *ConsulClient) (string, error) {
-	return GetRequiredString(client, "loadtool/config/speed_factor", "speed_factor")
-}
-
-// GetSpeedFactorValue retrieves the speed factor from Consul and returns it as a float64.
-func GetSpeedFactorValue() float64 {
-	raw, err := GetSpeedFactor(GlobalConsulClient)
+// GetSpeedFactor retrieves the speed_factor as float64 from Consul,
+// or returns 1.0 if there's an error or invalid value.
+func GetSpeedFactor(client *ConsulClient) float64 {
+	val, err := GetFloatValue(client, "loadtool/config/speed_factor", "speed_factor")
 	if err != nil {
-		log.Printf("error: %v", err)
-		return 1.0 // default value if there's an error
-	}
-
-	clean := strings.TrimSpace(raw)
-	speed, err := strconv.ParseFloat(clean, 64)
-	if err != nil {
-		log.Printf("invalid float: %v", err)
+		log.Printf("⚠️ using default speed_factor=1.0 due to error: %v", err)
 		return 1.0
 	}
-
-	return speed
+	return val
 }
 
 // Specific function for retrieving input_language
 func GetInputLanguage(client *ConsulClient) (string, error) {
-	return GetRequiredString(client, "loadtool/config/input_language", "input_language")
+	return client.GetRawValue("loadtool/config/input_language")
 }
 
 // Specific function for retrieving output_language
 func GetOutputLanguage(client *ConsulClient) (string, error) {
-	return GetRequiredString(client, "loadtool/config/output_language", "output_language")
+	return client.GetRawValue("loadtool/config/output_language")
 }
 
 // GetLogFilePath retrieves the log file path from Consul.
 func GetLogFilePath(client *ConsulClient) (string, error) {
-	return GetRequiredString(client, "loadtool/config/file_path", "file_path")
+	return client.GetRawValue("loadtool/config/file_path")
 }
 
 // GetOverrideTable retrieves the override table name from Consul.
 func GetOverrideTable(client *ConsulClient) (string, error) {
-	return GetRequiredString(client, "loadtool/config/override_table", "override_table")
+	return client.GetRawValue("loadtool/config/override_table")
 }
 
+// GetBatchSize retrieves batch_size as int from Consul.
 func GetBatchSize(client *ConsulClient) (int, error) {
 	return GetIntValue(client, "loadtool/config/batch_size", "batch_size")
 }
 
+// GetLastProcessedID retrieves last_processed_id as ObjectID from Consul.
 func GetLastProcessedID() (primitive.ObjectID, error) {
 	return GetObjectIDValue(GlobalConsulClient, "loadtool/config/last_processed_id", "last_processed_id")
 }

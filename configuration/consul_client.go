@@ -1,6 +1,9 @@
 package configuration
 
 import (
+	"fmt"
+	"strings"
+
 	"github.com/hashicorp/consul/api"
 )
 
@@ -24,17 +27,26 @@ func NewConsulClient(address string) (*ConsulClient, error) {
 }
 
 // General function to read value by key
+// GetRawValue retrieves a required, non-empty string value from Consul by key.
+// It returns an error if the key is missing, the value is empty, or there's a read error.
 func (c *ConsulClient) GetRawValue(key string) (string, error) {
 	kv := c.client.KV()
 	pair, _, err := kv.Get(key, nil)
 	if err != nil {
-		return "", err
+		return "", fmt.Errorf("error reading key '%s' from Consul: %w", key, err)
 	}
 
-	if pair == nil {
-		return "", nil
+	if pair == nil || strings.TrimSpace(string(pair.Value)) == "" {
+		return "", fmt.Errorf("value for key '%s' not found or empty in Consul", key)
 	}
 
-	return string(pair.Value), nil
+	return strings.TrimSpace(string(pair.Value)), nil
 }
 
+// General function to write value by key
+func (c *ConsulClient) PutRawValue(key, value string) error {
+	kv := c.client.KV()
+	p := &api.KVPair{Key: key, Value: []byte(value)}
+	_, err := kv.Put(p, nil)
+	return err
+}

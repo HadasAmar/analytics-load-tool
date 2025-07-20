@@ -83,7 +83,17 @@ func main() {
 	}
 	log.Printf("resuming from ID %s", lastID.Hex())
 
+<<<<<<< HEAD
 	// --- Ingest raw file to Mongo once (idempotent) ---
+=======
+	// Uncomment to delete all records in MongoDB (for testing purposes)
+	err=logger.DeleteAllRecords()
+	if err != nil {
+		log.Fatalf("❌ Failed to delete all records: %v", err)
+	}
+
+	// Read raw records from file
+>>>>>>> cf92d94c8d50b6236633fa36e6b3c5aa40572880
 	rawRecordsFromFile, err := reader.Read(logFilePath)
 	if err != nil {
 		log.Fatalf("failed to read file: %v", err)

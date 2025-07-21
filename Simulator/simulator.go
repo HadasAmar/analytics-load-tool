@@ -1,103 +1,175 @@
-// Simulator/grouped_replay.go
 package Simulator
 
 import (
-    "context"
-    "fmt"
-    "sort"
-    "sync"
-    "time"
+	"context"
+	"fmt"
+	"sort"
+	"sync"
+	"time"
 
-    "github.com/HadasAmar/analytics-load-tool/Model"
-    "github.com/HadasAmar/analytics-load-tool/Runner"
-    "github.com/HadasAmar/analytics-load-tool/configuration"
-    Formatter "github.com/HadasAmar/analytics-load-tool/formatter"
+	"github.com/HadasAmar/analytics-load-tool/Model"
+	"github.com/HadasAmar/analytics-load-tool/Runner"
+	"github.com/HadasAmar/analytics-load-tool/configuration"
+	Formatter "github.com/HadasAmar/analytics-load-tool/formatter"
 )
 
-func ReplaySpeedup(d time.Duration, factor float64) time.Duration {
-    if factor <= 0 {
-        return d
-    }
-    return time.Duration(float64(d) / factor)
+// ReplayEvent represents an event in the simulation.
+type ReplayEvent struct {
+	Timestamp time.Time
+	Payload   *Model.ParsedRecord
+	Delay     time.Duration
 }
 
-func SimulateReplayGrouped(
-    records []*Model.ParsedRecord,
-    sqlFormatter Formatter.Formatter,
-    runner Runner.QueryRunner,
-    ctx context.Context,
-    overrideTable string,
-    wg *sync.WaitGroup,
+// CalculateReplayEvents returns a slice of ReplayEvent based on the provided records.
+func CalculateReplayEvents(records []*Model.ParsedRecord) ([]ReplayEvent, error) {
+	if len(records) == 0 {
+		return nil, nil
+	}
+	sort.Slice(records, func(i, j int) bool {
+		return records[i].LogTime.Before(records[j].LogTime)
+	})
+
+	var result []ReplayEvent
+	var previous time.Time
+
+	for i, rec := range records {
+		delay := time.Duration(0)
+		if i > 0 {
+			delay = rec.LogTime.Sub(previous)
+		}
+		previous = rec.LogTime
+
+		replay := ReplayEvent{
+			Timestamp: rec.LogTime,
+			Payload:   rec,
+			Delay:     delay,
+		}
+		result = append(result, replay)
+	}
+	return result, nil
+}
+
+func ReplaySpeedup(delay time.Duration, speedup float64) time.Duration {
+	if speedup <= 0 {
+		speedup = 1.0
+	}
+	return time.Duration(float64(delay) / speedup)
+}
+
+func SimulateReplay(
+	records []*Model.ParsedRecord,
+	sqlFormatter Formatter.Formatter,
+	runner Runner.QueryRunner,
+	ctx context.Context,
+	overrideTable string,
+	mainWG *sync.WaitGroup,
+	startTime *time.Time,
 ) error {
-    if len(records) == 0 {
-        return nil
-    }
+	events, err := CalculateReplayEvents(records)
+	if err != nil || len(events) == 0 {
+		return err
+	}
 
-    sort.Slice(records, func(i, j int) bool {
-        return records[i].LogTime.Before(records[j].LogTime)
-    })
+	grouped, orderedTimes := groupEventsByTimestamp(events)
+	speed := configuration.GetSpeedFactor(configuration.GlobalConsulClient)
 
-    var groups [][]*Model.ParsedRecord
-    groups = append(groups, []*Model.ParsedRecord{records[0]})
-    for _, rec := range records[1:] {
-        last := groups[len(groups)-1][0]
-        if rec.LogTime.Equal(last.LogTime) {
-            groups[len(groups)-1] = append(groups[len(groups)-1], rec)
-        } else {
-            groups = append(groups, []*Model.ParsedRecord{rec})
-        }
-    }
+	var prevTimestamp time.Time
+	if startTime != nil {
+		prevTimestamp = *startTime
+	}
 
-    speed := configuration.GetSpeedFactor(configuration.GlobalConsulClient)
-    prevTS := groups[0][0].LogTime
+	for i, ts := range orderedTimes {
+		group := grouped[ts]
+		delay := calculateDelay(i, ts, startTime, prevTimestamp)
+		prevTimestamp = ts
 
-    for gi, group := range groups {
-        fmt.Printf("[%s] Group %d (items: %d)\n",
-            time.Now().Format("15:04:05.000"), gi, len(group),
-        )
+		adjusted := ReplaySpeedup(delay, speed)
+		expectedSendTime := time.Now().Add(adjusted)
+		time.Sleep(adjusted)
+		actualSendTime := time.Now()
 
-        // תמיד מחשבים sleep, גם עבור gi=0 (יהיה 0)
-        delay := group[0].LogTime.Sub(prevTS)
-        adjusted := ReplaySpeedup(delay, speed)
+		fmt.Printf("[%s] Sending %d events | ORIGINAL: %v ms | ADJUSTED: %v ms\n",
+			actualSendTime.Format("15:04:05.000"),
+			len(group),
+			delay.Milliseconds(),
+			adjusted.Milliseconds())
 
-        start := time.Now()
-        time.Sleep(adjusted)
-        actual := time.Since(start)
+		for _, event := range group {
+			sendEventAsync(event.Payload, sqlFormatter, runner, ctx, overrideTable, mainWG, expectedSendTime, actualSendTime)
+		}
+	}
 
-        deviation := actual - adjusted
-        fmt.Printf("  planned = %v, adjusted = %v, actual = %v, deviation = %v\n",
-            delay, adjusted, actual, deviation,
-        )
+	return nil
+}
 
-        prevTS = group[0].LogTime
+func groupEventsByTimestamp(events []ReplayEvent) (map[time.Time][]*ReplayEvent, []time.Time) {
+	grouped := make(map[time.Time][]*ReplayEvent)
+	var orderedTimes []time.Time
+	for _, e := range events {
+		grouped[e.Timestamp] = append(grouped[e.Timestamp], &e)
+	}
+	for t := range grouped {
+		orderedTimes = append(orderedTimes, t)
+	}
+	sort.Slice(orderedTimes, func(i, j int) bool {
+		return orderedTimes[i].Before(orderedTimes[j])
+	})
+	return grouped, orderedTimes
+}
 
-        for _, rec := range group {
-            if rec == nil || rec.Parsed == nil {
-                continue
-            }
-            if overrideTable != "" {
-                rec.Parsed.TableName = overrideTable
-            }
+func calculateDelay(i int, current time.Time, first *time.Time, prev time.Time) time.Duration {
+	if i == 0 && first != nil {
+		return current.Sub(*first)
+	} else if i > 0 {
+		return current.Sub(prev)
+	}
+	return 0
+}
 
-            wg.Add(1)
-            go func(r *Model.ParsedRecord) {
-                defer wg.Done()
+func sendEventAsync(
+	rec *Model.ParsedRecord,
+	formatter Formatter.Formatter,
+	runner Runner.QueryRunner,
+	ctx context.Context,
+	override string,
+	wg *sync.WaitGroup,
+	expected time.Time,
+	actual time.Time,
+) {
+	if rec == nil || rec.Parsed == nil {
+		return
+	}
+	if override != "" {
+		rec.Parsed.TableName = override
+	}
 
-                res, err := sqlFormatter.Format(r.Parsed)
-                if err != nil {
-                    fmt.Printf("Format error: %v\n", err)
-                    return
-                }
-                raw := res.(string)
-                dur, jobID, err := runner.RunRawQuery(ctx, raw)
-                if err != nil {
-                    fmt.Printf("Query failed: %v\n", err)
-                } else {
-                    fmt.Printf("Query succeeded | Duration: %v | Job ID: %s\n", dur, jobID)
-                }
-            }(rec)
-        }
-    }
+	wg.Add(1)
+	go func() {
+		defer wg.Done()
 
-    return nil
+		drift := actual.Sub(expected)
+		if drift < 0 {
+			drift = -drift
+		}
+
+		result, err := formatter.Format(rec.Parsed)
+		if err != nil {
+			fmt.Printf("Format error: %v\n", err)
+			return
+		}
+
+		raw, ok := result.(string)
+		if !ok {
+			fmt.Println("Failed to cast formatted query to string")
+			return
+		}
+
+		duration, jobID, err := runner.RunRawQuery(ctx, raw)
+		if err != nil {
+			fmt.Printf("Query failed: %v\n", err)
+		} else {
+			fmt.Printf("Query succeeded | Duration: %s | Job ID: %s | Drift: %.3f ms\n",
+				duration, jobID, float64(drift.Microseconds())/1000)
+		}
+	}()
 }

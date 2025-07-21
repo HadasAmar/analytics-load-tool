@@ -6,8 +6,8 @@ import (
 	"log"
 	"sync"
 	"time"
-
-	"github.com/HadasAmar/analytics-load-tool/Formatter"
+	"os"
+	"github.com/HadasAmar/analytics-load-tool/formatter"
 	"github.com/HadasAmar/analytics-load-tool/Reader"
 	"github.com/HadasAmar/analytics-load-tool/Runner"
 	"github.com/HadasAmar/analytics-load-tool/Simulator"
@@ -16,6 +16,9 @@ import (
 )
 
 func main() {
+	 if wd, err := os.Getwd(); err == nil {
+        fmt.Println("🔍 Running from directory:", wd)
+    }
 	// 🟣 Init Consul
 	if err := configuration.InitGlobalConsul(); err != nil {
 		log.Fatalf("❌ Failed to initialize Consul: %v", err)

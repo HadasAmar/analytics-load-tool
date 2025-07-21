@@ -3,16 +3,17 @@ package main
 
 import (
 	"context"
-	"log"
-	"sync"
-	"time"
-
 	"github.com/HadasAmar/analytics-load-tool/Reader"
 	"github.com/HadasAmar/analytics-load-tool/Runner"
 	"github.com/HadasAmar/analytics-load-tool/Simulator"
 	"github.com/HadasAmar/analytics-load-tool/configuration"
 	Formatter "github.com/HadasAmar/analytics-load-tool/formatter"
 	mongoLogger "github.com/HadasAmar/analytics-load-tool/mongo"
+	"log"
+	"net/http"
+	"os"
+	"sync"
+	"time"
 )
 
 func main() {
@@ -23,6 +24,21 @@ func main() {
 		log.Fatalf("❌ Failed to initialize Consul: %v", err)
 	}
 
+	http.HandleFunc("/api/input-language", configuration.InputLanguageHandler)
+
+	port := os.Getenv("PORT")
+	if port == "" {
+		port = "8080"
+	}
+	go func() {
+		log.Printf("✅ HTTP server listening on :%s", port)
+		if err := http.ListenAndServe(":"+port, nil); err != nil {
+			log.Fatalf("❌ HTTP server failed: %v", err)
+		}
+	}()
+
+	// log.Println("✅ Running on :8080")
+	// log.Fatal(http.ListenAndServe(":"+port, nil))
 	// Get log file path and reader from Consul
 	logFilePath, err := configuration.GetLogFilePath(configuration.GlobalConsulClient)
 	if err != nil {

@@ -113,7 +113,7 @@ func BuildSQLQuery(pq *Model.ParsedQuery) string {
 	}
 
 	// Add context information as comment
-	if pq.Context != nil && len(pq.Context) > 0 {
+	if len(pq.Context) > 0 {
 		query += fmt.Sprintf(" /* context: %+v */", pq.Context)
 	}
 

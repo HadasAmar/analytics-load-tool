@@ -4,7 +4,6 @@ import (
 	// "sync"
 	"testing"
 	"time"
-
 	"github.com/HadasAmar/analytics-load-tool/Model"
 )
 

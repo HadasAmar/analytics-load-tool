@@ -7,10 +7,10 @@ import (
 	"sync"
 	"time"
 
-	Formatter"github.com/HadasAmar/analytics-load-tool/formatter"
 	"github.com/HadasAmar/analytics-load-tool/Model"
 	"github.com/HadasAmar/analytics-load-tool/Runner"
 	"github.com/HadasAmar/analytics-load-tool/configuration"
+	Formatter "github.com/HadasAmar/analytics-load-tool/formatter"
 )
 
 // ReplayEvent represents an event in the simulation.
@@ -77,7 +77,7 @@ func SimulateReplay(
 	speed := configuration.GetSpeedFactor(configuration.GlobalConsulClient)
 
 	for i, event := range events {
-		
+
 		time.Sleep(ReplaySpeedup(event.Delay, speed))
 
 		now := time.Now().Format("15:04:05.000")

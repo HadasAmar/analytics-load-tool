@@ -21,11 +21,22 @@ func main() {
 	if err := configuration.InitGlobalConsul(); err != nil {
 		log.Fatalf("❌ Failed to initialize Consul: %v", err)
 	}
+// רישום endpoint אחד פשוט שמחזיר input_language
+	http.HandleFunc("/api/input-language", configuration.InputLanguageHandler)
 
-	// get log file path from Consul
-	// logFile, err := configuration.GetLogFilePath(configuration.GlobalConsulClient)
-	logFile, err:=os.Open("/app/druid-demo.log")
-		if err != nil {
+	port := os.Getenv("PORT")
+	if port == "" {
+		port = "8080"
+	}
+	go func() {
+	log.Printf("✅ HTTP server listening on :%s", port)
+	if err := http.ListenAndServe(":"+port, nil); err != nil {
+		log.Fatalf("❌ HTTP server failed: %v", err)
+	}
+}()
+
+	logFilePath, err := configuration.GetLogFilePath(configuration.GlobalConsulClient)
+	if err != nil {
 		log.Fatalf("❌ Failed to get log file path from Consul: %v", err)
 		// logFile = "druid-demo.log" // fallback to default if not set
 	}

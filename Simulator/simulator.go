@@ -10,8 +10,136 @@ import (
 	"github.com/HadasAmar/analytics-load-tool/formatter"
 	"github.com/HadasAmar/analytics-load-tool/Model"
 	"github.com/HadasAmar/analytics-load-tool/Runner"
-	"github.com/HadasAmar/analytics-load-tool/configuration"
 )
+
+// External control commands sent over the channel
+const (
+	Pause  = "pause"
+	Resume = "resume"
+	Stop   = "stop"
+)
+
+// SimulateReplayInGroups executes all records that share the same timestamp in parallel
+// and supports Pause / Resume / Stop through a command channel.
+//
+// records       - slice of ParsedRecord objects to replay
+// sqlFormatter  - implementation that converts ParsedQuery to raw SQL string
+// runner        - QueryRunner that executes the raw SQL against BigQuery (or other target)
+// ctx           - context propagated from main
+// overrideTable - non-empty string overrides the table name in each ParsedQuery
+// speedup       - factor to accelerate or slow the sleep between events (1 = real pace)
+// commands      - read-only channel for Pause/Resume/Stop (pass nil if not needed)
+// wg            - root WaitGroup from main; every goroutine launched here must call wg.Done()
+func SimulateReplayInGroups(
+	records []*Model.ParsedRecord,
+	sqlFormatter Formatter.Formatter,
+	runner Runner.QueryRunner,
+	ctx context.Context,
+	overrideTable string,
+	speedup float64,
+	commands <-chan string,
+	wg *sync.WaitGroup,
+) error {
+
+	events, err := CalculateReplayEvents(records)
+	if err != nil {
+		return err
+	}
+	if len(events) == 0 {
+		return nil
+	}
+
+	// Group events by exact timestamp
+	grouped := make(map[time.Time][]*Model.ParsedRecord)
+	var times []time.Time
+	for _, ev := range events {
+		grouped[ev.Timestamp] = append(grouped[ev.Timestamp], ev.Payload)
+	}
+	for ts := range grouped {
+		times = append(times, ts)
+	}
+	sort.Slice(times, func(i, j int) bool { return times[i].Before(times[j]) })
+
+	prev := times[0]
+
+mainLoop:
+	for idx, ts := range times {
+
+		// Sleep according to the gap between the current and previous group
+		if idx > 0 {
+			gap := ts.Sub(prev)
+			time.Sleep(ReplaySpeedup(gap, speedup))
+		}
+		prev = ts
+
+		// Handle Pause / Resume / Stop before launching the group
+		for {
+			if commands == nil {
+				break
+			}
+			select {
+			case cmd := <-commands:
+				switch cmd {
+				case Pause:
+					waitUntilResumeOrStop(commands)
+				case Stop:
+					break mainLoop
+				}
+			default:
+				goto runGroup
+			}
+		}
+
+runGroup:
+		recs := grouped[ts]
+
+		localWg := &sync.WaitGroup{}
+		localWg.Add(len(recs))
+
+		for _, rec := range recs {
+			// Increment the root WaitGroup so main can wait for all goroutines
+			wg.Add(1)
+
+			go func(r *Model.ParsedRecord) {
+				defer localWg.Done()
+				defer wg.Done()
+
+				if r == nil || r.Parsed == nil {
+					return
+				}
+				if overrideTable != "" {
+					r.Parsed.TableName = overrideTable
+				}
+
+				formatted, err := sqlFormatter.Format(r.Parsed)
+				if err != nil {
+					fmt.Printf("format error: %v\n", err)
+					return
+				}
+				raw, _ := formatted.(string)
+
+				if _, _, err := runner.RunRawQuery(ctx, raw); err != nil {
+					fmt.Printf("query failed: %v\n", err)
+				}
+			}(rec)
+		}
+		localWg.Wait() // wait for all records in this group to complete before moving on
+	}
+
+	return nil
+}
+
+// waitUntilResumeOrStop blocks until Resume or Stop is received
+func waitUntilResumeOrStop(commands <-chan string) {
+	for {
+		cmd := <-commands
+		if cmd == Resume || cmd == Stop {
+			return
+		}
+	}
+}
+
+// -------------- existing helpers kept unchanged ---------------
 
 // ReplayEvent represents an event in the simulation.
 type ReplayEvent struct {
@@ -20,200 +148,36 @@ type ReplayEvent struct {
 	Delay     time.Duration
 }
 
-// CalculateReplayEvents returns a slice of ReplayEvent based on the provided records.
-// Each event includes the timestamp, payload, and delay since the previous event.
+// CalculateReplayEvents turns a slice of records into ReplayEvents with per-record delay
 func CalculateReplayEvents(records []*Model.ParsedRecord) ([]ReplayEvent, error) {
 	if len(records) == 0 {
 		return nil, nil
 	}
-
-	// Sort records by LogTime
 	sort.Slice(records, func(i, j int) bool {
 		return records[i].LogTime.Before(records[j].LogTime)
 	})
 
 	var result []ReplayEvent
 	var previous time.Time
-
 	for i, rec := range records {
 		delay := time.Duration(0)
 		if i > 0 {
 			delay = rec.LogTime.Sub(previous)
 		}
 		previous = rec.LogTime
-
-		replay := ReplayEvent{
+		result = append(result, ReplayEvent{
 			Timestamp: rec.LogTime,
 			Payload:   rec,
 			Delay:     delay,
-		}
-		result = append(result, replay)
+		})
 	}
 	return result, nil
 }
 
-// ReplaySpeedup calculates the adjusted delay based on a speedup factor.
+// ReplaySpeedup returns an adjusted delay after applying a speedup factor
 func ReplaySpeedup(delay time.Duration, speedup float64) time.Duration {
 	if speedup <= 0 {
 		speedup = 1.0
 	}
-	adjusted := time.Duration(float64(delay) / speedup)
-	return adjusted
-}
-
-// SimulateReplayWithControl simulates events with delay and allows command control (pause/resume/stop)
-func SimulateReplayWithControl(
-	records []*Model.ParsedRecord,
-	commands chan string,
-	sqlFormatter Formatter.Formatter,
-	runner Runner.QueryRunner,
-	ctx context.Context,
-	overrideTable string,
-	wg *sync.WaitGroup,
-) error {
-	events, err := CalculateReplayEvents(records)
-	if err != nil {
-		return err
-	}
-
-	if len(events) == 0 {
-		fmt.Println("⚠️ No valid events to replay")
-		return nil
-	}
-
-	speed := configuration.GetSpeedFactorValue()
-	paused := false
-
-	baseTime := events[0].Timestamp
-	simStart := time.Now()
-
-	for i, event := range events {
-		// calculate adjusted time based on speedup
-		elapsed := event.Timestamp.Sub(baseTime)
-		adjusted := ReplaySpeedup(elapsed, speed)
-		targetTime := simStart.Add(adjusted)
-
-		// wait until the target time
-		wait := time.Until(targetTime)
-		if wait > 0 {
-			time.Sleep(wait)
-		}
-
-		// print event details
-		now := time.Now().Format("15:04:05.000")
-		fmt.Printf("[%s] 🕒 Event %d | ORIGINAL delay: %v ms | ADJUSTED: %v ms\n",
-			now, i, event.Delay.Milliseconds(), ReplaySpeedup(event.Delay, speed).Milliseconds())
-
-	waitLoop:
-		for {
-			select {
-			case cmd := <-commands:
-				switch cmd {
-				case "pause":
-					fmt.Println("⏸ simulation paused")
-					paused = true
-				case "resume":
-					fmt.Println("▶️ simulation resumed")
-					paused = false
-				case "stop":
-					fmt.Println("🛑 simulation stopped")
-					return nil
-				}
-			default:
-				if paused {
-					time.Sleep(200 * time.Millisecond)
-					continue
-				}
-
-				rec := event.Payload
-				if rec == nil || rec.Parsed == nil {
-					break waitLoop
-				}
-
-				if overrideTable != "" {
-					rec.Parsed.TableName = overrideTable
-				}
-
-				wg.Add(1)
-				go func(rec *Model.ParsedRecord, i int) {
-					defer wg.Done()
-					fmt.Printf("Running SQL Query for Event %d\n", i)
-
-					result, err := sqlFormatter.Format(rec.Parsed)
-					if err != nil {
-						fmt.Printf("⚠️ Format error: %v\n", err)
-						return
-					}
-
-					raw, ok := result.(string)
-					if !ok {
-						fmt.Println("⚠️ Failed to cast formatted query to string")
-						return
-					}
-
-					duration, jobID, err := runner.RunRawQuery(ctx, raw)
-					if err != nil {
-						fmt.Printf("❌ Query failed: %v\n", err)
-					} else {
-						fmt.Printf("✅ Query succeeded | Duration: %s | Job ID: %s\n", duration, jobID)
-					}
-				}(rec, i)
-
-				break waitLoop
-			}
-		}
-	}
-
-	return nil
-}
-
-
-// SimulateReplayInGroups runs SimulateReplayWithControl in parallel for each group of events with the same timestamp
-func SimulateReplayInGroups(records []*Model.ParsedRecord, commands chan string, speedup float64) error {
-	events, err := CalculateReplayEvents(records)
-	if err != nil {
-		return err
-	}
-
-	// Group records by timestamp
-	timestampGroups := make(map[time.Time][]*Model.ParsedRecord)
-	var timestamps []time.Time
-
-	for _, event := range events {
-		ts := event.Timestamp
-		timestampGroups[ts] = append(timestampGroups[ts], event.Payload)
-	}
-
-	// Sort timestamps chronologically
-	for ts := range timestampGroups {
-		timestamps = append(timestamps, ts)
-	}
-	sort.Slice(timestamps, func(i, j int) bool {
-		return timestamps[i].Before(timestamps[j])
-	})
-
-	var prev time.Time
-
-	for i, ts := range timestamps {
-		group := timestampGroups[ts]
-
-		// Sleep based on the time difference between groups
-		if i > 0 {
-			delay := ts.Sub(prev)
-			time.Sleep(ReplaySpeedup(delay, speedup))
-		}
-		prev = ts
-
-		var wg sync.WaitGroup
-		wg.Add(len(group))
-
-		for _, record := range group {
-			go func(r *Model.ParsedRecord) {
-				defer wg.Done()
-				// SimulateReplayWithControl([]*Model.ParsedRecord{r}, commands)
-			}(record)
-		}
-		wg.Wait()
-	}
-	return nil
+	return time.Duration(float64(delay) / speedup)
 }

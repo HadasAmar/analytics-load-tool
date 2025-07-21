@@ -11,9 +11,12 @@ import (
 	"github.com/HadasAmar/analytics-load-tool/configuration"
 	Formatter "github.com/HadasAmar/analytics-load-tool/formatter"
 	mongoLogger "github.com/HadasAmar/analytics-load-tool/mongo"
+	"net/http"
+	"os"
 )
 
 func main() {
+
 
 	ctx := context.Background()
 
@@ -21,6 +24,22 @@ func main() {
 	if err := configuration.InitGlobalConsul(); err != nil {
 		log.Fatalf("❌ Failed to initialize Consul: %v", err)
 	}
+// רישום endpoint אחד פשוט שמחזיר input_language
+	http.HandleFunc("/api/input-language", configuration.InputLanguageHandler)
+
+	port := os.Getenv("PORT")
+	if port == "" {
+		port = "8080"
+	}
+	go func() {
+	log.Printf("✅ HTTP server listening on :%s", port)
+	if err := http.ListenAndServe(":"+port, nil); err != nil {
+		log.Fatalf("❌ HTTP server failed: %v", err)
+	}
+}()
+
+	// log.Println("✅ Running on :8080")
+	// log.Fatal(http.ListenAndServe(":"+port, nil))
 
 	// Get log file path and reader from Consul (e.g. druid-demo.log)
 	logFilePath, err := configuration.GetLogFilePath(configuration.GlobalConsulClient)
@@ -142,4 +161,6 @@ func main() {
 
 	//wait for all goroutines to finish
 	wg.Wait()
+
+	
 }

@@ -142,5 +142,4 @@ func main() {
 
 	//wait for all goroutines to finish
 	wg.Wait()
-
 }

@@ -4,7 +4,7 @@ import (
 	"context"
 	"log"
 	"sync"
-
+"time"
 	"github.com/HadasAmar/analytics-load-tool/Reader"
 	"github.com/HadasAmar/analytics-load-tool/Runner"
 	"github.com/HadasAmar/analytics-load-tool/Simulator"
@@ -104,11 +104,9 @@ func main() {
 
 	// wait for all goroutines to finish
 	var wg sync.WaitGroup
+	var lastTimestamp *time.Time
 
-	// Process records in batches
 	for batchNum := 1; ; batchNum++ {
-
-		// get logs from mongo after lastID with limit
 		rawBatch, latestID, err := logger.ReadLogsAfterWithLimit(lastID, batchSize)
 		if err != nil {
 			log.Fatalf("❌ Failed to read batch: %v", err)
@@ -117,7 +115,6 @@ func main() {
 			break
 		}
 
-		// Parse raw records
 		parsedBatch, err := Reader.ReadParsedRecordsFromMongo(rawBatch)
 		if err != nil {
 			log.Fatalf("❌ Failed to parse batch: %v", err)
@@ -125,21 +122,21 @@ func main() {
 
 		log.Printf("▶️ Sending batch %d with %d records...", batchNum, len(parsedBatch))
 
-		// Simulate replay of parsed records
-		err = Simulator.SimulateReplay(parsedBatch, sqlFormatter, runner, ctx, overrideTable, &wg)
+		// ← SimulateReplay מקבל startTime מוחלט לבאץ' הראשון
+		err = Simulator.SimulateReplay(parsedBatch, sqlFormatter, runner, ctx, overrideTable, &wg, lastTimestamp)
 		if err != nil {
 			log.Printf("⚠️ Simulation failed on batch %d: %v", batchNum, err)
 		}
 
-		// update lastID after processing batch
+		// Update checkpoint + זכרון של ה־timestamp האחרון
 		last := parsedBatch[len(parsedBatch)-1]
 		if last != nil {
 			lastID = latestID
+			lastTimestamp = &last.LogTime
 			_ = configuration.SaveLastProcessedID(lastID)
 			log.Printf("💾 Updated checkpoint to: %s", lastID.Hex())
 		}
 	}
 
-	//wait for all goroutines to finish
 	wg.Wait()
 }

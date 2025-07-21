@@ -3,10 +3,11 @@ package formatter
 import (
 	"fmt"
 	"strings"
+
 	"github.com/HadasAmar/analytics-load-tool/Model"
 )
 
-// FilterToSQL converts a FilterNode (from the parsed model) into a SQL WHERE condition string.
+// FilterToSQL converts a FilterNode into a SQL WHERE clause string.
 func FilterToSQL(f *Model.FilterNode) string {
 	if f == nil {
 		return ""
@@ -14,11 +15,11 @@ func FilterToSQL(f *Model.FilterNode) string {
 
 	switch f.Type {
 	case "selector":
-		// A simple equality condition: dimension = 'value'
+		// Simple equality condition, e.g. dimension = 'value'
 		return fmt.Sprintf("%s = '%s'", f.Dimension, f.Value)
 
 	case "bound":
-		// A range condition (e.g. >= lower and/or <= upper)
+		// Range condition (e.g., dimension BETWEEN lower AND upper)
 		var parts []string
 		if f.Lower != "" {
 			parts = append(parts, fmt.Sprintf("%s >= '%s'", f.Dimension, f.Lower))
@@ -29,37 +30,37 @@ func FilterToSQL(f *Model.FilterNode) string {
 		return strings.Join(parts, " AND ")
 
 	case "and":
-		// Combine multiple child filters using AND
+		// Logical AND for multiple conditions
 		var clauses []string
 		for _, child := range f.Fields {
-			if s := FilterToSQL(child); s != "" {
-				clauses = append(clauses, fmt.Sprintf("(%s)", s))
+			if clause := FilterToSQL(child); clause != "" {
+				clauses = append(clauses, fmt.Sprintf("(%s)", clause))
 			}
 		}
 		return strings.Join(clauses, " AND ")
 
 	case "or":
-		// Combine multiple child filters using OR
+		// Logical OR for multiple conditions
 		var clauses []string
 		for _, child := range f.Fields {
-			if s := FilterToSQL(child); s != "" {
-				clauses = append(clauses, fmt.Sprintf("(%s)", s))
+			if clause := FilterToSQL(child); clause != "" {
+				clauses = append(clauses, fmt.Sprintf("(%s)", clause))
 			}
 		}
 		return strings.Join(clauses, " OR ")
 
 	case "not":
-		// Apply NOT to a single child filter
+		// Logical NOT for a single condition
 		if f.Field != nil {
 			return fmt.Sprintf("NOT (%s)", FilterToSQL(f.Field))
 		}
 	}
 
-	// Return a comment if the filter type is unsupported
+	// Unsupported filter type
 	return fmt.Sprintf("/* unsupported filter type: %s */", f.Type)
 }
 
-// HavingToSQL converts a HavingClause (usually applied after aggregations) into a SQL HAVING clause string.
+// HavingToSQL converts a HavingClause into a SQL HAVING clause string.
 func HavingToSQL(h *Model.HavingClause) string {
 	if h == nil {
 		return ""
@@ -67,41 +68,44 @@ func HavingToSQL(h *Model.HavingClause) string {
 
 	switch h.Type {
 	case "greaterThan":
+		// Aggregation > value
 		return fmt.Sprintf("%s > %v", h.Aggregation, h.Value)
 
 	case "lessThan":
+		// Aggregation < value
 		return fmt.Sprintf("%s < %v", h.Aggregation, h.Value)
 
 	case "equalTo":
+		// Aggregation = value
 		return fmt.Sprintf("%s = %v", h.Aggregation, h.Value)
 
 	case "not":
-		// Apply NOT to one inner having clause
+		// Logical NOT for a single having condition
 		if len(h.HavingSpecs) == 1 {
 			return fmt.Sprintf("NOT (%s)", HavingToSQL(h.HavingSpecs[0]))
 		}
 
 	case "or":
-		// Combine child havings with OR
+		// Logical OR for multiple having conditions
 		var parts []string
 		for _, child := range h.HavingSpecs {
-			if s := HavingToSQL(child); s != "" {
-				parts = append(parts, fmt.Sprintf("(%s)", s))
+			if part := HavingToSQL(child); part != "" {
+				parts = append(parts, fmt.Sprintf("(%s)", part))
 			}
 		}
 		return strings.Join(parts, " OR ")
 
 	case "and":
-		// Combine child havings with AND
+		// Logical AND for multiple having conditions
 		var parts []string
 		for _, child := range h.HavingSpecs {
-			if s := HavingToSQL(child); s != "" {
-				parts = append(parts, fmt.Sprintf("(%s)", s))
+			if part := HavingToSQL(child); part != "" {
+				parts = append(parts, fmt.Sprintf("(%s)", part))
 			}
 		}
 		return strings.Join(parts, " AND ")
 	}
 
-	// Return a comment if the having type is unsupported
+	// Unsupported having clause type
 	return fmt.Sprintf("/* unsupported having type: %s */", h.Type)
 }

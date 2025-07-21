@@ -5,6 +5,7 @@ go 1.24.4
 require (
 	cloud.google.com/go/bigquery v1.69.0
 	github.com/hashicorp/consul/api v1.32.1
+	go.mongodb.org/mongo-driver v1.17.4
 	google.golang.org/api v0.232.0
 )
 
@@ -48,7 +49,6 @@ require (
 	github.com/xdg-go/stringprep v1.0.4 // indirect
 	github.com/youmark/pkcs8 v0.0.0-20240726163527-a2c0da244d78 // indirect
 	github.com/zeebo/xxh3 v1.0.2 // indirect
-	go.mongodb.org/mongo-driver v1.17.4 // indirect
 	go.opentelemetry.io/auto/sdk v1.1.0 // indirect
 	go.opentelemetry.io/contrib/instrumentation/google.golang.org/grpc/otelgrpc v0.60.0 // indirect
 	go.opentelemetry.io/contrib/instrumentation/net/http/otelhttp v0.60.0 // indirect

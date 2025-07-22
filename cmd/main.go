@@ -7,37 +7,33 @@ import (
 	"os"
 	"sync"
 
-	"fmt"
-	"github.com/DataDog/datadog-go/statsd"
+	// "fmt"
+	"net/http"
+	"time"
+
 	"github.com/HadasAmar/analytics-load-tool/Reader"
 	"github.com/HadasAmar/analytics-load-tool/Runner"
 	"github.com/HadasAmar/analytics-load-tool/Simulator"
 	"github.com/HadasAmar/analytics-load-tool/configuration"
 	Formatter "github.com/HadasAmar/analytics-load-tool/formatter"
 	mongoLogger "github.com/HadasAmar/analytics-load-tool/mongo"
-
-	"net/http"
-
+	// "github.com/armon/go-metrics"
+	".../metrics"
 )
 
-
-
 func main() {
+
 	ctx := context.Background()
 
 	// Create a statsd client to send metrics to the Datadog Agent
-	statsdClient, err := statsd.New("127.0.0.1:8125")
-	if err != nil {
-		log.Fatalf("❌ Failed to create statsd client: %v", err)
-	}
-	defer statsdClient.Close()
+	metrics.Init()
+	defer metrics.Client.Close()
 
 	// Initialize Consul client
 	if err := configuration.InitGlobalConsul(); err != nil {
 		log.Fatalf("❌ Failed to initialize Consul: %v", err)
 	}
 	// Registering a single simple endpoint that returns input_language
-
 	http.HandleFunc("/api/input-language", configuration.InputLanguageHandler)
 
 	port := os.Getenv("PORT")
@@ -125,6 +121,8 @@ func main() {
 	var lastTimestamp *time.Time
 
 	for batchNum := 1; ; batchNum++ {
+		start := time.Now()
+
 		rawBatch, latestID, err := logger.ReadLogsAfterWithLimit(lastID, batchSize)
 		if err != nil {
 			log.Fatalf("❌ Failed to read batch: %v", err)
@@ -145,14 +143,7 @@ func main() {
 		if err != nil {
 			log.Printf("⚠️ Simulation failed on batch %d: %v", batchNum, err)
 		} else {
-			// Send metric to Datadog on batch success
-			err := statsdClient.Incr("loadtool.query.success", []string{
-				"batch:" + fmt.Sprint(batchNum),
-				"records:" + fmt.Sprint(len(parsedBatch)),
-			}, 1)
-			if err != nil {
-				log.Printf("⚠️ Failed to send metric: %v", err)
-			}
+			metrics.Success(batchNum, len(parsedBatch))
 		}
 
 		// Update checkpoint + זכרון של ה־timestamp האחרון
@@ -163,6 +154,7 @@ func main() {
 			_ = configuration.SaveLastProcessedID(lastID)
 			log.Printf("💾 Updated checkpoint to: %s", lastID.Hex())
 		}
+		metrics.Timing(start, "loadtool.batch.duration")
 	}
 
 	wg.Wait()

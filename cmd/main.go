@@ -17,8 +17,7 @@ import (
 	"github.com/HadasAmar/analytics-load-tool/configuration"
 	Formatter "github.com/HadasAmar/analytics-load-tool/formatter"
 	mongoLogger "github.com/HadasAmar/analytics-load-tool/mongo"
-	// "github.com/armon/go-metrics"
-	".../metrics"
+	"github.com/armon/go-metrics"
 )
 
 func main() {

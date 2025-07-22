@@ -3,9 +3,13 @@ package Reader
 import (
 	"encoding/json"
 	"os"
-
+	"time"
 	"github.com/HadasAmar/analytics-load-tool/Model"
 )
+func parseTime(s string) time.Time {
+	t, _ := time.Parse(time.RFC3339, s)
+	return t
+}
 
 // ReadJSONFile reads a JSON file and returns []*ParsedRecord
 func ReadJSONFile(filename string) ([]*Model.ParsedRecord, error) {
@@ -27,7 +31,13 @@ func ReadJSONFile(filename string) ([]*Model.ParsedRecord, error) {
 	var result []*Model.ParsedRecord
 	for _, row := range input {
 		queryBytes, _ := json.Marshal(row.Query)
-		record := ParseRawRecord(row.Timestamp, row.IP, string(queryBytes))
+		record := &Model.ParsedRecord{
+	LogTime: parseTime(row.Timestamp),
+	IP:      row.IP,
+	Query:   string(queryBytes),
+	Parsed:  nil,
+}
+
 		if record != nil {
 			result = append(result, record)
 		}

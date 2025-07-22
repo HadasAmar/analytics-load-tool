@@ -15,6 +15,8 @@ require (
 	cloud.google.com/go/auth/oauth2adapt v0.2.8 // indirect
 	cloud.google.com/go/compute/metadata v0.6.0 // indirect
 	cloud.google.com/go/iam v1.5.2 // indirect
+	github.com/DataDog/datadog-go v4.8.3+incompatible // indirect
+	github.com/Microsoft/go-winio v0.6.2 // indirect
 	github.com/apache/arrow/go/v15 v15.0.2 // indirect
 	github.com/armon/go-metrics v0.4.1 // indirect
 	github.com/fatih/color v1.16.0 // indirect

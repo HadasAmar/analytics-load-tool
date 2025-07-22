@@ -2,26 +2,37 @@ package main
 
 import (
 	"context"
-	"fmt"
 	"log"
 	"os"
 	"sync"
-	"time"
 
+	"fmt"
+	"github.com/DataDog/datadog-go/statsd"
 	"github.com/HadasAmar/analytics-load-tool/Reader"
 	"github.com/HadasAmar/analytics-load-tool/Runner"
 	"github.com/HadasAmar/analytics-load-tool/Simulator"
 	"github.com/HadasAmar/analytics-load-tool/configuration"
-	"github.com/HadasAmar/analytics-load-tool/formatter"
+	Formatter "github.com/HadasAmar/analytics-load-tool/formatter"
 	mongoLogger "github.com/HadasAmar/analytics-load-tool/mongo"
+	"net/http"
 )
 
 func main() {
-	// initialize Consul
+
+	ctx := context.Background()
+
+	// Create a statsd client to send metrics to the Datadog Agent
+	statsdClient, err := statsd.New("127.0.0.1:8125")
+	if err != nil {
+		log.Fatalf("❌ Failed to create statsd client: %v", err)
+	}
+	defer statsdClient.Close()
+
+	// Initialize Consul client
 	if err := configuration.InitGlobalConsul(); err != nil {
 		log.Fatalf("❌ Failed to initialize Consul: %v", err)
 	}
-// רישום endpoint אחד פשוט שמחזיר input_language
+	// Registering a single simple endpoint that returns input_language
 	http.HandleFunc("/api/input-language", configuration.InputLanguageHandler)
 
 	port := os.Getenv("PORT")
@@ -29,85 +40,140 @@ func main() {
 		port = "8080"
 	}
 	go func() {
-	log.Printf("✅ HTTP server listening on :%s", port)
-	if err := http.ListenAndServe(":"+port, nil); err != nil {
-		log.Fatalf("❌ HTTP server failed: %v", err)
-	}
-}()
+		log.Printf("✅ HTTP server listening on :%s", port)
+		if err := http.ListenAndServe(":"+port, nil); err != nil {
+			log.Fatalf("❌ HTTP server failed: %v", err)
+		}
+	}()
 
+	// Get log file path and reader from Consul (e.g. druid-demo.log)
 	logFilePath, err := configuration.GetLogFilePath(configuration.GlobalConsulClient)
 	if err != nil {
 		log.Fatalf("❌ Failed to get log file path from Consul: %v", err)
-		// logFile = "druid-demo.log" // fallback to default if not set
-	}
-	// get override table name from Consul
-	overrideTable, err := configuration.GetOverrideTable(configuration.GlobalConsulClient)
-	if err != nil {
-		// log.Fatalf("❌ Failed to get override table from Consul: %v", err)
-		overrideTable = "My_Try.loadtool_logs" // fallback to default if not set
 	}
 
-	// 🟣 Init MongoDB logger
+	// Get reader based on input language from Consul (e.g. CSV, JSON, Log)
+	reader, err := Reader.GetReaderFromConsul(logFilePath, configuration.GlobalConsulClient)
+	if err != nil {
+		log.Fatalf("❌ Failed to get reader from Consul: %v", err)
+	}
+
+	// Get override table name from Consul
+	overrideTable, err := configuration.GetOverrideTable(configuration.GlobalConsulClient)
+	if err != nil {
+		log.Fatalf("❌ Failed to get override table: %v", err)
+	}
+
+	//connect to MongoDB and create logger
+	//צריך להעביר לקונסול את המשתנים
 	logger, err := mongoLogger.NewMongoLogger(
 		"mongodb+srv://shilat3015:sh0533143015@cluster0.q7ov2xk.mongodb.net/?tlsInsecure=true",
-		"logsdb",
-		"records",
-		"progress",
+		"logsdb", "records", "progress",
 	)
 	if err != nil {
 		log.Fatalf("❌ Failed to connect to MongoDB: %v", err)
 	}
 
-	// ⏱ Fetch last processed timestamp
-	lastTS, err := logger.GetLastProcessedTimestamp()
+	// Get batch size from Consul
+	batchSize, err := configuration.GetBatchSize(configuration.GlobalConsulClient)
 	if err != nil {
-		log.Fatalf("❌ Failed to get last processed timestamp: %v", err)
+		log.Fatalf("❌ Failed to get batch size from Consul: %v", err)
 	}
-	log.Printf("⏱ Resuming from: %s", lastTS.Format(time.RFC3339))
+	log.Printf("🔢 Using batch size: %d", batchSize)
 
-	// write a value to Consul for testing
-	err = configuration.GlobalConsulClient.PutRawValue("loadtool/config/Recently_touched_index", lastTS.GoString())
+	// Get last processed ID from Consul
+	lastID, err := configuration.GetLastProcessedID()
 	if err != nil {
-		log.Fatalf("❌ Failed to write to Consul: %v", err)
+		log.Fatalf("❌ Failed to get last processed ID from Consul: %v", err)
 	}
-	log.Println("✅ Value written to Consul successfully!")
+	log.Printf("⏱ Resuming from ID: %s", lastID.Hex())
 
-	// 📥 Read records from file
-	records, err := Reader.ReadLogFile(logFile.Name())
+	// Uncomment to delete all records in MongoDB (for testing purposes)
+	err = logger.DeleteAllRecords()
 	if err != nil {
-		log.Fatalf("❌ Failed to read records: %v", err)
+		log.Fatalf("❌ Failed to delete all records: %v", err)
 	}
 
-	// ☁️ Init BigQuery runner
-	ctx := context.Background()
-	projectID := "platform-hackaton-2025"
-	credsPath := "./credentials.json"
+	// Read raw records from file
+	rawRecordsFromFile, err := reader.Read(logFilePath)
+	if err != nil {
+		log.Fatalf("❌ Failed to read records from file: %v", err)
+	}
+	log.Printf("📄 Read %d raw records from file", len(rawRecordsFromFile))
 
-	runner, err := Runner.NewBigQueryRunner(ctx, projectID, credsPath)
+	// Save raw records to MongoDB
+	inserted := 0
+	for _, rec := range rawRecordsFromFile {
+		if rec == nil || rec.Query == "" {
+			continue
+		}
+		rec.Parsed = nil
+		if err := logger.SaveLog(rec); err != nil {
+			log.Printf("⚠️ Failed to save record: %v", err)
+			continue
+		}
+		inserted++
+	}
+	log.Printf("✅ Inserted %d raw records to Mongo", inserted)
+
+	// create a new BigQuery runner
+	//לשמור את המשתנים בקונסול
+	runner, err := Runner.NewBigQueryRunner(ctx, "platform-hackaton-2025", "./credentials.json")
 	if err != nil {
 		log.Fatalf("❌ Could not create BigQuery client: %v", err)
 	}
 
-	// 🧱 Create SQL formatter
+	// Initialize SQL formatter
 	var sqlFormatter Formatter.Formatter = &Formatter.SQLFormatter{}
 
-	// ▶️ Simulate replay in background
-	wg := sync.WaitGroup{}
-	err = Simulator.SimulateReplaySimple(records, sqlFormatter, runner, ctx, overrideTable, &wg)
-	if err != nil {
-		log.Fatalf("❌ Simulation failed: %v", err)
+	// wait for all goroutines to finish
+	var wg sync.WaitGroup
+
+	// Process records in batches
+	for batchNum := 1; ; batchNum++ {
+
+		// get logs from mongo after lastID with limit
+		rawBatch, latestID, err := logger.ReadLogsAfterWithLimit(lastID, batchSize)
+		if err != nil {
+			log.Fatalf("❌ Failed to read batch: %v", err)
+		}
+		if len(rawBatch) == 0 {
+			break
+		}
+
+		// Parse raw records
+		parsedBatch, err := Reader.ReadParsedRecordsFromMongo(rawBatch)
+		if err != nil {
+			log.Fatalf("❌ Failed to parse batch: %v", err)
+		}
+
+		log.Printf("▶️ Sending batch %d with %d records...", batchNum, len(parsedBatch))
+
+		// Simulate replay of parsed records
+		err = Simulator.SimulateReplay(parsedBatch, sqlFormatter, runner, ctx, overrideTable, &wg)
+		if err != nil {
+			log.Printf("⚠️ Simulation failed on batch %d: %v", batchNum, err)
+		} else {
+			// Send metric to Datadog on batch success
+			err := statsdClient.Incr("loadtool.query.success", []string{
+				"batch:" + fmt.Sprint(batchNum),
+				"records:" + fmt.Sprint(len(parsedBatch)),
+			}, 1)
+			if err != nil {
+				log.Printf("⚠️ Failed to send metric: %v", err)
+			}
+		}
+
+		// update lastID after processing batch
+		last := parsedBatch[len(parsedBatch)-1]
+		if last != nil {
+			lastID = latestID
+			_ = configuration.SaveLastProcessedID(lastID)
+			log.Printf("💾 Updated checkpoint to: %s", lastID.Hex())
+		}
 	}
+
+	//wait for all goroutines to finish
 	wg.Wait()
 
-	// שמירת כל רשומה ותחנה אחרונה
-	for _, record := range records {
-		if record == nil || record.Parsed == nil || record.LogTime.Before(lastTS) {
-			continue
-		}
-		_ = logger.SaveLog(record)
-		_ = logger.SaveLastProcessedTimestamp(record.LogTime)
-	}
-
-	// <-done
-	fmt.Println("🎉 Simulation completed!")
 }

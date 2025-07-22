@@ -10,14 +10,13 @@ import (
 	// "fmt"
 	"net/http"
 	"time"
-
+    "github.com/HadasAmar/analytics-load-tool/metrics"
 	"github.com/HadasAmar/analytics-load-tool/Reader"
 	"github.com/HadasAmar/analytics-load-tool/Runner"
 	"github.com/HadasAmar/analytics-load-tool/Simulator"
 	"github.com/HadasAmar/analytics-load-tool/configuration"
 	Formatter "github.com/HadasAmar/analytics-load-tool/formatter"
 	mongoLogger "github.com/HadasAmar/analytics-load-tool/mongo"
-	"github.com/armon/go-metrics"
 )
 
 func main() {

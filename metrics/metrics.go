@@ -1,10 +1,10 @@
 package metrics
 
 import (
+	"fmt"
+	"github.com/DataDog/datadog-go/statsd"
 	"log"
 	"time"
-	"github.com/DataDog/datadog-go/statsd"
-	"fmt"
 )
 
 var Client *statsd.Client
@@ -41,6 +41,16 @@ func Timing(start time.Time, name string) {
 	err := Client.Timing(name, duration, nil, 1)
 	if err != nil {
 		log.Printf("⚠️ Failed to send timing metric: %v", err)
+	}
+}
+
+// NumRecordsSent sends how many records were sent in each batch
+func NumRecordsSent(batchNum int, count int) {
+	err := Client.Gauge("loadtool.records.sent", float64(count), []string{
+		fmt.Sprintf("batch:%d", batchNum),
+	}, 1)
+	if err != nil {
+		log.Printf("⚠️ Failed to send records.sent metric: %v", err)
 	}
 }
 

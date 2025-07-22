@@ -16,9 +16,8 @@ import (
 	"github.com/HadasAmar/analytics-load-tool/Simulator"
 	"github.com/HadasAmar/analytics-load-tool/configuration"
 	Formatter "github.com/HadasAmar/analytics-load-tool/formatter"
+	"github.com/HadasAmar/analytics-load-tool/metrics"
 	mongoLogger "github.com/HadasAmar/analytics-load-tool/mongo"
-	// "github.com/armon/go-metrics"
-	".../metrics"
 )
 
 func main() {
@@ -137,6 +136,7 @@ func main() {
 		}
 
 		log.Printf("▶️ Sending batch %d with %d records...", batchNum, len(parsedBatch))
+		metrics.NumRecordsSent(batchNum, len(parsedBatch))
 
 		// ← SimulateReplay מקבל startTime מוחלט לבאץ' הראשון
 		err = Simulator.SimulateReplay(parsedBatch, sqlFormatter, runner, ctx, overrideTable, &wg, lastTimestamp)

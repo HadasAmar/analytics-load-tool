@@ -3,27 +3,37 @@ package main
 
 import (
 	"context"
+	"log"
+	"os"
+	"sync"
+
+	// "fmt"
+	"net/http"
+	"time"
+
 	"github.com/HadasAmar/analytics-load-tool/Reader"
 	"github.com/HadasAmar/analytics-load-tool/Runner"
 	"github.com/HadasAmar/analytics-load-tool/Simulator"
 	"github.com/HadasAmar/analytics-load-tool/configuration"
 	Formatter "github.com/HadasAmar/analytics-load-tool/formatter"
 	mongoLogger "github.com/HadasAmar/analytics-load-tool/mongo"
-	"log"
-	"net/http"
-	"os"
-	"sync"
-	"time"
+	// "github.com/armon/go-metrics"
+	".../metrics"
 )
 
 func main() {
+
 	ctx := context.Background()
+
+	// Create a statsd client to send metrics to the Datadog Agent
+	metrics.Init()
+	defer metrics.Client.Close()
 
 	// Initialize Consul client
 	if err := configuration.InitGlobalConsul(); err != nil {
 		log.Fatalf("❌ Failed to initialize Consul: %v", err)
 	}
-
+	// Registering a single simple endpoint that returns input_language
 	http.HandleFunc("/api/input-language", configuration.InputLanguageHandler)
 
 	port := os.Getenv("PORT")
@@ -37,9 +47,7 @@ func main() {
 		}
 	}()
 
-	// log.Println("✅ Running on :8080")
-	// log.Fatal(http.ListenAndServe(":"+port, nil))
-	// Get log file path and reader from Consul
+	// Get log file path and reader from Consul (e.g. druid-demo.log)
 	logFilePath, err := configuration.GetLogFilePath(configuration.GlobalConsulClient)
 	if err != nil {
 		log.Fatalf("❌ Failed to get log file path from Consul: %v", err)
@@ -113,6 +121,8 @@ func main() {
 	var lastTimestamp *time.Time
 
 	for batchNum := 1; ; batchNum++ {
+		start := time.Now()
+
 		rawBatch, latestID, err := logger.ReadLogsAfterWithLimit(lastID, batchSize)
 		if err != nil {
 			log.Fatalf("❌ Failed to read batch: %v", err)
@@ -132,6 +142,8 @@ func main() {
 		err = Simulator.SimulateReplay(parsedBatch, sqlFormatter, runner, ctx, overrideTable, &wg, lastTimestamp)
 		if err != nil {
 			log.Printf("⚠️ Simulation failed on batch %d: %v", batchNum, err)
+		} else {
+			metrics.Success(batchNum, len(parsedBatch))
 		}
 
 		// Update checkpoint + זכרון של ה־timestamp האחרון
@@ -142,7 +154,9 @@ func main() {
 			_ = configuration.SaveLastProcessedID(lastID)
 			log.Printf("💾 Updated checkpoint to: %s", lastID.Hex())
 		}
+		metrics.Timing(start, "loadtool.batch.duration")
 	}
 
 	wg.Wait()
+
 }

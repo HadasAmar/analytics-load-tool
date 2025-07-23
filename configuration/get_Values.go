@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"log"
 	"strconv"
+
 	"go.mongodb.org/mongo-driver/bson/primitive"
 )
 
@@ -46,7 +47,7 @@ func GetObjectIDValue(client *ConsulClient, key string, name string) (primitive.
 func GetSpeedFactor(client *ConsulClient) float64 {
 	val, err := GetFloatValue(client, "loadtool/config/speed_factor", "speed_factor")
 	if err != nil {
-		log.Printf("⚠️ using default speed_factor=1.0 due to error: %v", err)
+		log.Printf("using default speed_factor=1.0 due to error: %v", err)
 		return 1.0
 	}
 	return val
@@ -80,4 +81,34 @@ func GetBatchSize(client *ConsulClient) (int, error) {
 // GetLastProcessedID retrieves last_processed_id as ObjectID from Consul.
 func GetLastProcessedID() (primitive.ObjectID, error) {
 	return GetObjectIDValue(GlobalConsulClient, "loadtool/config/last_processed_id", "last_processed_id")
+}
+
+type MongoConfig struct {
+	URI        string
+	Database   string
+	Collection string
+}
+
+// GetMongoConfig retrieves MongoDB configuration details from Consul.
+func GetMongoConfig(client *ConsulClient) (*MongoConfig, error) {
+	uri, err := client.GetRawValue("loadtool/config/mongo_uri")
+	if err != nil {
+		return nil, err
+	}
+
+	db, err := client.GetRawValue("loadtool/config/mongo_db")
+	if err != nil {
+		return nil, err
+	}
+
+	collection, err := client.GetRawValue("loadtool/config/mongo_collection")
+	if err != nil {
+		return nil, err
+	}
+
+	return &MongoConfig{
+		URI:        uri,
+		Database:   db,
+		Collection: collection,
+	}, nil
 }

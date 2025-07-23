@@ -12,12 +12,14 @@ import (
 	"go.mongodb.org/mongo-driver/mongo/options"
 )
 
+// MongoLogger handles MongoDB operations for records and progress tracking.
 type MongoLogger struct {
 	client       *mongo.Client
 	recordColl   *mongo.Collection
 	progressColl *mongo.Collection
 }
 
+// Creates a new MongoLogger with a MongoDB connection and collections.
 func NewMongoLogger(uri, dbName, recordCollName, progressCollName string) (*MongoLogger, error) {
 	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
 	defer cancel()
@@ -35,6 +37,7 @@ func NewMongoLogger(uri, dbName, recordCollName, progressCollName string) (*Mong
 	}, nil
 }
 
+// Saves a parsed record to the record collection.
 func (m *MongoLogger) SaveLog(record *Model.ParsedRecord) error {
 	doc := bson.M{
 		"timestamp": record.LogTime,
@@ -46,6 +49,7 @@ func (m *MongoLogger) SaveLog(record *Model.ParsedRecord) error {
 	return err
 }
 
+// Updates the last processed timestamp (upsert).
 func (m *MongoLogger) SaveLastProcessedTimestamp(t time.Time) error {
 	_, err := m.progressColl.UpdateOne(
 		context.TODO(),
@@ -56,6 +60,7 @@ func (m *MongoLogger) SaveLastProcessedTimestamp(t time.Time) error {
 	return err
 }
 
+// Retrieves the last processed timestamp.
 func (m *MongoLogger) GetLastProcessedTimestamp() (time.Time, error) {
 	var result struct {
 		Timestamp time.Time `bson:"timestamp"`
@@ -69,6 +74,9 @@ func (m *MongoLogger) GetLastProcessedTimestamp() (time.Time, error) {
 	}
 	return result.Timestamp, nil
 }
+
+
+// Reads records after a given ObjectID, with a limit.
 
 func (m *MongoLogger) ReadLogsAfterWithLimit(lastID primitive.ObjectID, limit int) ([]*Model.ParsedRecord, primitive.ObjectID, error) {
 	filter := bson.M{
@@ -110,6 +118,9 @@ func (m *MongoLogger) ReadLogsAfterWithLimit(lastID primitive.ObjectID, limit in
 
 	return results, latestID, nil
 }
+
+
+// Deletes all records from the record collection.
 
 func (m *MongoLogger) DeleteAllRecords() error {
 	_, err := m.recordColl.DeleteMany(context.TODO(), bson.M{})

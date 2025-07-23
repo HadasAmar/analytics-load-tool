@@ -27,8 +27,6 @@ func NewConsulClient(address string) (*ConsulClient, error) {
 }
 
 // General function to read value by key
-// GetRawValue retrieves a required, non-empty string value from Consul by key.
-// It returns an error if the key is missing, the value is empty, or there's a read error.
 func (c *ConsulClient) GetRawValue(key string) (string, error) {
 	kv := c.client.KV()
 	pair, _, err := kv.Get(key, nil)

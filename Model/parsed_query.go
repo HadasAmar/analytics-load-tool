@@ -4,7 +4,7 @@ type ParsedQuery struct {
 	SelectFields     []string          // SELECT fields
 	TableName        string            // FROM
 	GroupByFields    []string          // GROUP BY
-	Aggregations     []string          // Simple aggregations
+    Aggregations []Aggregation
 	PostAggregations []PostAggregation // Complex/computed aggregations
 	Filter           *FilterNode       // WHERE clause
 	Having           *HavingClause     // HAVING clause
@@ -17,6 +17,11 @@ type ParsedQuery struct {
 	VirtualColumns   []VirtualColumn   // Computed columns
 	QueryType        string            // Query type (e.g., groupBy, topN)
 	RawJSON          string            // Original query (for logging/debugging)
+}
+type Aggregation struct {
+	Type      string
+	FieldName string
+	Alias     string
 }
 
 type HavingClause struct {

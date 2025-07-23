@@ -89,7 +89,7 @@ func SimulateReplay(
 		time.Sleep(adjusted)
 		actualSendTime := time.Now()
 
-		// Calculate and print time drift
+		// Log time drift for debugging
 		drift := actualSendTime.Sub(expectedSendTime)
 		if drift < 0 {
 			drift = -drift
@@ -139,7 +139,6 @@ func calculateDelay(i int, current time.Time, first *time.Time, prev time.Time) 
 }
 
 // sendEventAsync formats and sends a SQL query in a goroutine.
-// It also logs the drift between expected and actual send times.
 func sendEventAsync(
 	rec *Model.ParsedRecord,
 	formatter Formatter.Formatter,
@@ -154,7 +153,7 @@ func sendEventAsync(
 		return
 	}
 
-	// Override the table name if specified
+	// Apply override for table name if needed
 	if override != "" {
 		rec.Parsed.TableName = override
 	}
@@ -163,7 +162,7 @@ func sendEventAsync(
 	go func() {
 		defer wg.Done()
 
-		// Calculate and print time drift (actual vs expected)
+		// Debug print: time drift
 		drift := actual.Sub(expected)
 		if drift < 0 {
 			drift = -drift
@@ -186,7 +185,7 @@ func sendEventAsync(
 			return
 		}
 
-		// Run the SQL query and print results
+		// Run the query
 		duration, jobID, err := runner.RunRawQuery(ctx, raw)
 		if err != nil {
 			fmt.Printf("Query failed: %v\n", err)

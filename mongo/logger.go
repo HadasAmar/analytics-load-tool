@@ -45,7 +45,7 @@ func (m *MongoLogger) SaveLog(record *Model.ParsedRecord) error {
 		"raw":       record.Query,
 	}
 	_, err := m.recordColl.InsertOne(context.TODO(), doc)
-	fmt.Printf("🎉Saved record with timestamp: %s\n", record.LogTime.Format(time.RFC3339))
+	fmt.Printf("Saved record with timestamp: %s\n", record.LogTime.Format(time.RFC3339))
 	return err
 }
 

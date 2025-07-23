@@ -5,16 +5,17 @@ import (
 	"context"
 	"log"
 
+	"net/http"
 	"os"
 	"sync"
-	"net/http"
 	"time"
-	"github.com/HadasAmar/analytics-load-tool/metrics"
+
 	"github.com/HadasAmar/analytics-load-tool/Reader"
 	"github.com/HadasAmar/analytics-load-tool/Runner"
 	"github.com/HadasAmar/analytics-load-tool/Simulator"
 	"github.com/HadasAmar/analytics-load-tool/configuration"
 	Formatter "github.com/HadasAmar/analytics-load-tool/formatter"
+	"github.com/HadasAmar/analytics-load-tool/metrics"
 	mongoLogger "github.com/HadasAmar/analytics-load-tool/mongo"
 )
 
@@ -79,7 +80,7 @@ func main() {
 		log.Fatalf("Failed to get last processed ID from Consul: %v", err)
 	}
 	log.Printf("Using batch size: %d", batchSize)
-	log.Printf("⏱ Resuming from ID: %s", lastID.Hex())
+	log.Printf("Resuming from ID: %s", lastID.Hex())
 
 	// Uncomment to delete all records in MongoDB (for testing purposes)
 	if err := logger.DeleteAllRecords(); err != nil {

@@ -15,9 +15,9 @@ import (
 
 // ReplayEvent represents a single simulation event with its original timestamp and delay.
 type ReplayEvent struct {
-	Timestamp time.Time              // original time of the event
-	Payload   *Model.ParsedRecord    // actual record to be replayed
-	Delay     time.Duration          // time since previous event
+	Timestamp time.Time           // original time of the event
+	Payload   *Model.ParsedRecord // actual record to be replayed
+	Delay     time.Duration       // time since previous event
 }
 
 // CalculateReplayEvents builds a list of ReplayEvent from a slice of ParsedRecord,
@@ -178,6 +178,12 @@ func sendEventAsync(
 			drift = -drift
 		}
 
+		// הדפסת סטייה בנפרד מהשאילתה
+		fmt.Printf("Dispatching event | Expected: %s | Actual: %s | Drift: %.3f ms\n",
+			expected.Format("15:04:05.000"),
+			actual.Format("15:04:05.000"),
+			float64(drift.Microseconds())/1000)
+
 		// Format query
 		result, err := formatter.Format(rec.Parsed)
 		if err != nil {
@@ -196,8 +202,7 @@ func sendEventAsync(
 		if err != nil {
 			fmt.Printf("Query failed: %v\n", err)
 		} else {
-			fmt.Printf("Query succeeded | Duration: %s | Job ID: %s | Drift: %.3f ms\n",
-				duration, jobID, float64(drift.Microseconds())/1000)
+			fmt.Printf("Query succeeded | Duration: %s | Job ID: %s\n", duration, jobID)
 		}
 	}()
 }

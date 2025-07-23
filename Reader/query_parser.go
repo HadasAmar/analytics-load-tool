@@ -7,6 +7,7 @@ import (
 
 	"github.com/HadasAmar/analytics-load-tool/Model"
 )
+
 // ParseRawRecord returns a complete record: including IP, timestamp, raw query, and ParsedQuery
 func ParseRawRecord(timestamp, ip, raw string) *Model.ParsedRecord {
 	cleanIP := strings.TrimSpace(ip)
@@ -65,7 +66,11 @@ func ParseRawRecord(timestamp, ip, raw string) *Model.ParsedRecord {
 				field, _ := amap["fieldName"].(string)
 				name, _ := amap["name"].(string)
 				if typeStr != "" && field != "" && name != "" {
-					pq.Aggregations = append(pq.Aggregations, typeStr+"("+field+") AS "+name)
+					pq.Aggregations = append(pq.Aggregations, Model.Aggregation{
+						Type:      typeStr,
+						FieldName: field,
+						Alias:     name,
+					})
 				}
 			}
 		}
@@ -188,6 +193,7 @@ func ParseRawRecord(timestamp, ip, raw string) *Model.ParsedRecord {
 			}
 		}
 	}
+   normalizeParsedQuery(pq)
 
 	// Return full parsed log record
 	return &Model.ParsedRecord{
@@ -195,5 +201,27 @@ func ParseRawRecord(timestamp, ip, raw string) *Model.ParsedRecord {
 		IP:      cleanIP,
 		Query:   raw,
 		Parsed:  pq,
+	}
+}
+ func normalizeFunc(expr string) string {
+	replacements := map[string]string{
+		"longSum":     "SUM",
+		"doubleSum":   "SUM",
+		"longMin":     "MIN",
+		"doubleMin":   "MIN",
+		"longMax":     "MAX",
+		"doubleMax":   "MAX",
+		"hyperUnique": "APPROX_COUNT_DISTINCT",
+		"count":       "COUNT",
+	}
+	for from, to := range replacements {
+		expr = strings.ReplaceAll(expr, from, to)
+	}
+	return expr
+}
+
+func normalizeParsedQuery(pq *Model.ParsedQuery) {
+	for i := range pq.Aggregations {
+		pq.Aggregations[i].Type = normalizeFunc(pq.Aggregations[i].Type)
 	}
 }

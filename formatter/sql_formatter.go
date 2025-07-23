@@ -21,11 +21,10 @@ func BuildSQLQuery(pq *Model.ParsedQuery) string {
 		return ""
 	}
 
-	// Use a set to avoid duplicate select fields
 	selectSet := make(map[string]struct{})
 	var selectClause []string
 
-	// Add fields from the SELECT clause
+	// SELECT fields
 	for _, field := range pq.SelectFields {
 		if _, exists := selectSet[field]; !exists {
 			selectSet[field] = struct{}{}
@@ -33,23 +32,22 @@ func BuildSQLQuery(pq *Model.ParsedQuery) string {
 		}
 	}
 
-	// Convert and add aggregation functions
+	// Aggregations (new structure)
 	for _, agg := range pq.Aggregations {
-		converted := convertDruidFuncToSQL(agg)
-		if _, exists := selectSet[converted]; !exists {
-			selectSet[converted] = struct{}{}
-			selectClause = append(selectClause, converted)
+		formatted := formatAggregation(agg)
+		if _, exists := selectSet[formatted]; !exists {
+			selectSet[formatted] = struct{}{}
+			selectClause = append(selectClause, formatted)
 		}
 	}
 
-	// Add post-aggregation expressions (with aliases)
+	// PostAggregations
 	for _, p := range pq.PostAggregations {
 		expr := p.Expression
 		if expr == "" {
 			expr = p.FieldName
 		}
 		if expr != "" {
-			expr = convertDruidFuncToSQL(expr)
 			formatted := fmt.Sprintf("%s AS %s", expr, p.Name)
 			if _, exists := selectSet[formatted]; !exists {
 				selectSet[formatted] = struct{}{}
@@ -58,18 +56,17 @@ func BuildSQLQuery(pq *Model.ParsedQuery) string {
 		}
 	}
 
-	// Construct SELECT and FROM clauses
 	query := fmt.Sprintf("SELECT %s", strings.Join(selectClause, ", "))
 	query += fmt.Sprintf(" FROM %s", pq.TableName)
 
-	// Add WHERE clause based on filters
+	// WHERE
 	if pq.Filter != nil {
 		if where := FilterToSQL(pq.Filter); where != "" {
 			query += fmt.Sprintf(" WHERE %s", where)
 		}
 	}
 
-	// Construct GROUP BY clause
+	// GROUP BY
 	groupSet := make(map[string]struct{})
 	var groupBy []string
 	for _, f := range pq.GroupByFields {
@@ -82,19 +79,19 @@ func BuildSQLQuery(pq *Model.ParsedQuery) string {
 		query += fmt.Sprintf(" GROUP BY %s", strings.Join(groupBy, ", "))
 	}
 
-	// Add HAVING clause if specified
+	// HAVING
 	if pq.Having != nil {
 		if having := HavingToSQL(pq.Having); having != "" {
-			query += fmt.Sprintf(" HAVING %s", convertDruidFuncToSQL(having))
+			query += fmt.Sprintf(" HAVING %s", having)
 		}
 	}
 
-	// Add LIMIT clause if specified
+	// LIMIT
 	if pq.Limit != nil {
 		query += fmt.Sprintf(" LIMIT %d", *pq.Limit)
 	}
 
-	// Add ORDER BY clause (and DESC order if specified)
+	// ORDER BY
 	if len(pq.Ordering) > 0 {
 		query += fmt.Sprintf(" ORDER BY %s", strings.Join(pq.Ordering, ", "))
 		if pq.Descending {
@@ -102,17 +99,13 @@ func BuildSQLQuery(pq *Model.ParsedQuery) string {
 		}
 	}
 
-	// Add granularity information as comment
+	// Metadata comments
 	if pq.Granularity != "" {
 		query += fmt.Sprintf(" /* granularity: %s */", pq.Granularity)
 	}
-
-	// Add intervals as comment
 	if len(pq.Intervals) > 0 {
 		query += fmt.Sprintf(" /* intervals: %s */", strings.Join(pq.Intervals, ", "))
 	}
-
-	// Add context information as comment
 	if len(pq.Context) > 0 {
 		query += fmt.Sprintf(" /* context: %+v */", pq.Context)
 	}
@@ -120,21 +113,11 @@ func BuildSQLQuery(pq *Model.ParsedQuery) string {
 	return query
 }
 
-// convertDruidFuncToSQL replaces Druid aggregation functions with BigQuery equivalents.
-func convertDruidFuncToSQL(expr string) string {
-	replacements := map[string]string{
-		"longSum":     "SUM",
-		"doubleSum":   "SUM",
-		"longMin":     "MIN",
-		"doubleMin":   "MIN",
-		"longMax":     "MAX",
-		"doubleMax":   "MAX",
-		"hyperUnique": "APPROX_COUNT_DISTINCT",
-		"count":       "COUNT",
-	}
-
-	for druidFunc, sqlFunc := range replacements {
-		expr = strings.ReplaceAll(expr, druidFunc+"(", sqlFunc+"(")
+// formatAggregation builds an SQL expression from Aggregation struct.
+func formatAggregation(agg Model.Aggregation) string {
+	expr := strings.ToUpper(agg.Type) + "(" + agg.FieldName + ")"
+	if agg.Alias != "" {
+		expr += " AS " + agg.Alias
 	}
 	return expr
 }

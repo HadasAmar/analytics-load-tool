@@ -1,14 +1,14 @@
 package Model
 
-
+// FilterNode represents a node in a filter tree used in Druid queries.
 type FilterNode struct {
-	Type         string         `json:"type"`                    // "selector", "bound", "and", "or", "not"
-	Dimension    string         `json:"dimension,omitempty"`     // לשאילתות כמו selector, bound
-	Value        string         `json:"value,omitempty"`         // לשימוש עם selector
-	Lower        string         `json:"lower,omitempty"`         // לשימוש עם bound
-	Upper        string         `json:"upper,omitempty"`         // לשימוש עם bound
-	Field        *FilterNode    `json:"field,omitempty"`         // עבור פילטר מסוג NOT
-	Fields       []*FilterNode  `json:"fields,omitempty"`        // עבור AND / OR – כאן בדיוק נכנס Fields שאת שואלת עליו
-	ExtractionFn interface{}    `json:"extractionFn,omitempty"`  // אם יש פונקציית המרה
-	Ordering     interface{}    `json:"ordering,omitempty"`      // לרוב ב־bound
+	Type         string        `json:"type"`                   // Filter type: "selector", "bound", "and", "or", "not"
+	Dimension    string        `json:"dimension,omitempty"`    // Used for "selector" and "bound" filters
+	Value        string        `json:"value,omitempty"`        // Used with "selector" filters
+	Lower        string        `json:"lower,omitempty"`        // Used with "bound" filters
+	Upper        string        `json:"upper,omitempty"`        // Used with "bound" filters
+	Field        *FilterNode   `json:"field,omitempty"`        // Used with "not" filter (single subfilter)
+	Fields       []*FilterNode `json:"fields,omitempty"`       // Used with "and"/"or" filters (multiple subfilters)
+	ExtractionFn interface{}   `json:"extractionFn,omitempty"` // Optional extraction function
+	Ordering     interface{}   `json:"ordering,omitempty"`     // Optional ordering (commonly used in "bound")
 }

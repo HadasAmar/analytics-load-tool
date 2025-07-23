@@ -75,7 +75,9 @@ func (m *MongoLogger) GetLastProcessedTimestamp() (time.Time, error) {
 	return result.Timestamp, nil
 }
 
+
 // Reads records after a given ObjectID, with a limit.
+
 func (m *MongoLogger) ReadLogsAfterWithLimit(lastID primitive.ObjectID, limit int) ([]*Model.ParsedRecord, primitive.ObjectID, error) {
 	filter := bson.M{
 		"_id": bson.M{"$gt": lastID},
@@ -117,7 +119,9 @@ func (m *MongoLogger) ReadLogsAfterWithLimit(lastID primitive.ObjectID, limit in
 	return results, latestID, nil
 }
 
+
 // Deletes all records from the record collection.
+
 func (m *MongoLogger) DeleteAllRecords() error {
 	_, err := m.recordColl.DeleteMany(context.TODO(), bson.M{})
 	return err

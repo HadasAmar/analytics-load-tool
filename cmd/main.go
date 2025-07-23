@@ -2,154 +2,164 @@ package main
 
 import (
 	"context"
-	"fmt"
 	"log"
+	"net"
+	"net/http"
+	"os"
 	"sync"
 	"time"
 
-	"github.com/HadasAmar/analytics-load-tool/Formatter"
+	"github.com/HadasAmar/analytics-load-tool/configuration"
+	"github.com/HadasAmar/analytics-load-tool/metrics"
 	"github.com/HadasAmar/analytics-load-tool/Reader"
 	"github.com/HadasAmar/analytics-load-tool/Runner"
 	"github.com/HadasAmar/analytics-load-tool/Simulator"
-	"github.com/HadasAmar/analytics-load-tool/configuration"
+	Formatter "github.com/HadasAmar/analytics-load-tool/formatter"
 	mongoLogger "github.com/HadasAmar/analytics-load-tool/mongo"
 )
 
 func main() {
-	// 🟣 Init Consul
+	ctx := context.Background()
+
+	// Init metrics client
+	metrics.Init()
+	defer metrics.Client.Close()
+
+	// Init Consul
 	if err := configuration.InitGlobalConsul(); err != nil {
 		log.Fatalf("❌ Failed to initialize Consul: %v", err)
 	}
 
-	// 🟡 Get override table name
-	overrideTable, err := configuration.GetOverrideTable(configuration.GlobalConsulClient)
-	if err != nil {
-		log.Fatalf("❌ Failed to get override table: %v", err)
+	// Register HTTP handler
+	http.HandleFunc("/api/input-language", configuration.InputLanguageHandler)
 
+	// Determine port
+	port := os.Getenv("PORT")
+	if port == "" {
+		port = "8080"
 	}
 
-	// 📄 Get log file path and reader from Consul
+	// Bind listener before logging
+	addr := ":" + port
+	listener, err := net.Listen("tcp", addr)
+	if err != nil {
+		log.Fatalf("❌ HTTP server failed to bind on %s: %v", addr, err)
+	}
+	// Confirm listening
+	log.Printf("✅ HTTP server listening on %s", listener.Addr())
+
+	// Serve in goroutine
+	go func() {
+		if err := http.Serve(listener, nil); err != nil {
+			log.Fatalf("❌ HTTP server stopped: %v", err)
+		}
+	}()
+
+	// Fetch Consul config
 	logFilePath, err := configuration.GetLogFilePath(configuration.GlobalConsulClient)
 	if err != nil {
-		log.Fatalf("❌ Failed to get log file path: %v", err)
+		log.Fatalf("❌ Failed to get log file path from Consul: %v", err)
 	}
 	reader, err := Reader.GetReaderFromConsul(logFilePath, configuration.GlobalConsulClient)
 	if err != nil {
 		log.Fatalf("❌ Failed to get reader from Consul: %v", err)
 	}
 
-	// 🔵 Connect to MongoDB
+	overrideTable, err := configuration.GetOverrideTable(configuration.GlobalConsulClient)
+	if err != nil {
+		log.Fatalf("❌ Failed to get override table: %v", err)
+	}
+
+	// Mongo logger setup
 	logger, err := mongoLogger.NewMongoLogger(
 		"mongodb+srv://shilat3015:sh0533143015@cluster0.q7ov2xk.mongodb.net/?tlsInsecure=true",
-		"logsdb",
-		"records",
-		"progress",
+		"logsdb", "records", "progress",
 	)
 	if err != nil {
 		log.Fatalf("❌ Failed to connect to MongoDB: %v", err)
 	}
 
-	// 📥 Read raw records from file (Parsed=nil)
-	rawRecordsFromFile, err := reader.Read(logFilePath)
+	batchSize, err := configuration.GetBatchSize(configuration.GlobalConsulClient)
+	if err != nil {
+		log.Fatalf("❌ Failed to get batch size from Consul: %v", err)
+	}
+	lastID, err := configuration.GetLastProcessedID()
+	if err != nil {
+		log.Fatalf("❌ Failed to get last processed ID from Consul: %v", err)
+	}
+	log.Printf("🔢 Using batch size: %d", batchSize)
+	log.Printf("⏱ Resuming from ID: %s", lastID.Hex())
+
+	// Optional: clear records
+	if err := logger.DeleteAllRecords(); err != nil {
+		log.Fatalf("❌ Failed to delete all records: %v", err)
+	}
+
+	// Read raw records
+	rawRecords, err := reader.Read(logFilePath)
 	if err != nil {
 		log.Fatalf("❌ Failed to read records from file: %v", err)
 	}
-	log.Printf("📄 Read %d raw records from file", len(rawRecordsFromFile))
-
-	// 💾 Save raw records to Mongo
-	inserted := 0
-	for _, rec := range rawRecordsFromFile {
+	log.Printf("📄 Read %d raw records from file", len(rawRecords))
+	for _, rec := range rawRecords {
 		if rec == nil || rec.Query == "" {
 			continue
 		}
 		rec.Parsed = nil
 		if err := logger.SaveLog(rec); err != nil {
 			log.Printf("⚠️ Failed to save record: %v", err)
-			continue
 		}
-		inserted++
 	}
-	log.Printf("✅ Inserted %d raw records to Mongo", inserted)
+	log.Printf("✅ Inserted %d raw records to Mongo", len(rawRecords))
 
-	// ⏱ Get last processed timestamp
-	lastTS, err := logger.GetLastProcessedTimestamp()
-	if err != nil {
-		log.Fatalf("❌ Failed to get last timestamp: %v", err)
-	}
-	log.Printf("⏱ Resuming from: %s", lastTS.Format(time.RFC3339))
-	// 📥 Read from Mongo
-	rawFromMongo, err := logger.ReadLogsAfter(lastTS)
-	if err != nil {
-		log.Fatalf("❌ Failed to read from Mongo: %v", err)
-	}
-	log.Printf("📥 Got %d raw records from Mongo", len(rawFromMongo))
-
-	// 🧠 Parse records
-	records, err := Reader.ReadParsedRecordsFromMongo(rawFromMongo)
-	if err != nil {
-		log.Fatalf("❌ Failed to parse records: %v", err)
-	}
-	log.Printf("✅ Parsed %d records", len(records))
-
-	// ☁️ Init BigQuery
-	ctx := context.Background()
+	// BigQuery runner
 	runner, err := Runner.NewBigQueryRunner(ctx, "platform-hackaton-2025", "./credentials.json")
 	if err != nil {
-		log.Fatalf("❌ Failed to init BigQuery: %v", err)
+		log.Fatalf("❌ Could not create BigQuery client: %v", err)
 	}
-	sqlFormatter := &Formatter.SQLFormatter{}
-	// ▶️ Simulate
+	log.Printf("✅ BigQuery client created successfully")
+
+	// SQL formatter
+	var sqlFormatter Formatter.Formatter = &Formatter.SQLFormatter{}
+
+	// Process batches
 	var wg sync.WaitGroup
-	commands := make(chan string)
-	done := make(chan struct{})
+	var lastTimestamp *time.Time
 
-	go func() {
-		err := Simulator.SimulateReplayWithControl(records, commands, sqlFormatter, runner, ctx, overrideTable, &wg)
+	for batchNum := 1; ; batchNum++ {
+		start := time.Now()
+
+		rawBatch, latestID, err := logger.ReadLogsAfterWithLimit(lastID, batchSize)
 		if err != nil {
-			log.Printf("❌ Simulation error: %v", err)
+			log.Fatalf("❌ Failed to read batch: %v", err)
 		}
-		wg.Wait()
-		close(done)
-	}()
+		if len(rawBatch) == 0 {
+			break
+		}
 
-	// 🎮 CLI control
-	go func() {
-		for {
-			var input string
-			fmt.Println("Enter command [pause/resume/stop]:")
-			fmt.Scanln(&input)
-			if input == "stop" {
-				commands <- "stop"
-				return
-			}
-			if input == "pause" || input == "resume" {
-				commands <- input
-			}
+		parsedBatch, err := Reader.ReadParsedRecordsFromMongo(rawBatch)
+		if err != nil {
+			log.Fatalf("❌ Failed to parse batch: %v", err)
 		}
-	}()
 
-	// 📝 Track latest processed timestamp (one single value)
-	var latest time.Time
-	for _, record := range records {
-		if record == nil || record.Parsed == nil || record.LogTime.Before(lastTS) {
-			continue
-		}
-		if record.LogTime.After(latest) {
-			latest = record.LogTime
-		}
-	}
-	// 💾 Save latest timestamp to Mongo + Consul
-	if !latest.IsZero() {
-		if err := logger.SaveLastProcessedTimestamp(latest); err != nil {
-			log.Printf("⚠️ Failed to save progress timestamp to Mongo: %v", err)
-		}
-		if err := configuration.GlobalConsulClient.PutRawValue("loadtool/config/Recently_touched_index", latest.GoString()); err != nil {
-			log.Printf("⚠️ Failed to write latest timestamp to Consul: %v", err)
+		log.Printf("▶️ Sending batch %d with %d records...", batchNum, len(parsedBatch))
+
+		err = Simulator.SimulateReplay(parsedBatch, sqlFormatter, runner, ctx, overrideTable, &wg, lastTimestamp)
+		if err != nil {
+			log.Printf("⚠️ Simulation failed on batch %d: %v", batchNum, err)
 		} else {
-			log.Println("✅ Saved last timestamp to Consul")
+			metrics.Success(batchNum, len(parsedBatch))
 		}
+
+		last := parsedBatch[len(parsedBatch)-1]
+		if last != nil {
+			lastID = latestID
+			lastTimestamp = &last.LogTime
+			_ = configuration.SaveLastProcessedID(lastID)
+			log.Printf("💾 Updated checkpoint to: %s", lastID.Hex())
+		}
+		metrics.Timing(start, "loadtool.batch.duration")
 	}
 
-	<-done
-	fmt.Println("🎉 Simulation completed!")
+	wg.Wait()
 }

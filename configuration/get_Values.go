@@ -4,94 +4,80 @@ import (
 	"fmt"
 	"log"
 	"strconv"
-	"strings"
+	"go.mongodb.org/mongo-driver/bson/primitive"
 )
 
-// Specific function for retrieving speed_factor
-func GetSpeedFactor(client *ConsulClient) (string, error) {
-	key := "loadtool/config/speed_factor"
-	value, err := client.GetRawValue(key)
+// generic function to retrieve an integer value from Consul
+func GetIntValue(client *ConsulClient, key string, name string) (int, error) {
+	raw, err := client.GetRawValue(key)
 	if err != nil {
-		return "", fmt.Errorf("error reading from Consul: %w", err)
+		return 0, err
 	}
-
-	if value == "" {
-		return "", fmt.Errorf("speed_factor not found in Consul")
+	n, err := strconv.Atoi(raw)
+	if err != nil || n <= 0 {
+		return 0, fmt.Errorf("invalid %s value: %s", name, raw)
 	}
-
-	return value, nil
+	return n, nil
 }
 
-// GetSpeedFactorValue retrieves the speed factor from Consul and returns it as a float64.
-func GetSpeedFactorValue() float64 {
-	raw, err := GetSpeedFactor(GlobalConsulClient)
+func GetFloatValue(client *ConsulClient, key string, name string) (float64, error) {
+	raw, err := client.GetRawValue(key)
 	if err != nil {
-		log.Printf("⚠️ error: %v", err)
-		return 1.0 //default value if there's an error
+		return 0, err
 	}
-
-	clean := strings.TrimSpace(raw)
-	speed, err := strconv.ParseFloat(clean, 64)
+	val, err := strconv.ParseFloat(raw, 64)
 	if err != nil {
-		log.Printf("⚠️ invalid float: %v", err)
+		return 0, fmt.Errorf("invalid %s value: %s", name, raw)
+	}
+	return val, nil
+}
+
+// generic function to retrieve an ObjectID value from Consul
+func GetObjectIDValue(client *ConsulClient, key string, name string) (primitive.ObjectID, error) {
+	raw, err := client.GetRawValue(key)
+	if err != nil {
+		return primitive.NilObjectID, err
+	}
+	return primitive.ObjectIDFromHex(raw)
+}
+
+// GetSpeedFactor retrieves the speed_factor as float64 from Consul,
+// or returns 1.0 if there's an error or invalid value.
+func GetSpeedFactor(client *ConsulClient) float64 {
+	val, err := GetFloatValue(client, "loadtool/config/speed_factor", "speed_factor")
+	if err != nil {
+		log.Printf("⚠️ using default speed_factor=1.0 due to error: %v", err)
 		return 1.0
 	}
-
-	return speed
+	return val
 }
 
 // Specific function for retrieving input_language
 func GetInputLanguage(client *ConsulClient) (string, error) {
-	key := "loadtool/config/input_language"
-	value, err := client.GetRawValue(key)
-	if err != nil {
-		return "", fmt.Errorf("error reading from Consul: %w", err)
-	}
-
-	if value == "" {
-		return "", fmt.Errorf("input_language not found in Consul")
-	}
-
-	return value, nil
+	return client.GetRawValue("loadtool/config/input_language")
 }
 
 // Specific function for retrieving output_language
 func GetOutputLanguage(client *ConsulClient) (string, error) {
-	key := "loadtool/config/output_language"
-	value, err := client.GetRawValue(key)
-	if err != nil {
-		return "", fmt.Errorf("error reading from Consul: %w", err)
-	}
-
-	if value == "" {
-		return "", fmt.Errorf("output_language not found in Consul")
-	}
-
-	return value, nil
+	return client.GetRawValue("loadtool/config/output_language")
 }
+
 // GetLogFilePath retrieves the log file path from Consul.
 func GetLogFilePath(client *ConsulClient) (string, error) {
-    key := "loadtool/config/file_path"
-    value, err := client.GetRawValue(key)
-    if err != nil {
-        return "", fmt.Errorf("error reading from Consul: %w", err)
-    }
-    if value == "" {
-        return "", fmt.Errorf("file_path not found in Consul")
-    }
-    return value, nil
+	return client.GetRawValue("loadtool/config/file_path")
 }
+
 // GetOverrideTable retrieves the override table name from Consul.
 func GetOverrideTable(client *ConsulClient) (string, error) {
-    key := "loadtool/config/override_table"
-    value, err := client.GetRawValue(key)
-    if err != nil {
-        return "", fmt.Errorf("error reading from Consul: %w", err)
-    }
+	return client.GetRawValue("loadtool/config/override_table")
+}
 
-    if value == "" {
-        return "", fmt.Errorf("override_table not found in Consul")
-    }
+// GetBatchSize retrieves batch_size as int from Consul.
+func GetBatchSize(client *ConsulClient) (int, error) {
+	return GetIntValue(client, "loadtool/config/batch_size", "batch_size")
+}
 
-    return value, nil
+// GetLastProcessedID retrieves last_processed_id as ObjectID from Consul.
+func GetLastProcessedID() (primitive.ObjectID, error) {
+	return GetObjectIDValue(GlobalConsulClient, "loadtool/config/last_processed_id", "last_processed_id")
 }

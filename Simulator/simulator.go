@@ -88,11 +88,17 @@ func SimulateReplay(
 		time.Sleep(adjusted)
 		actualSendTime := time.Now()
 
-		fmt.Printf("[%s] Sending %d events | ORIGINAL: %v ms | ADJUSTED: %v ms\n",
+		drift := actualSendTime.Sub(expectedSendTime)
+		if drift < 0 {
+			drift = -drift
+		}
+
+		fmt.Printf("[%s] Sending %d events | ORIGINAL: %v ms | ADJUSTED: %v ms | Drift: %.3f ms\n",
 			actualSendTime.Format("15:04:05.000"),
 			len(group),
 			delay.Milliseconds(),
-			adjusted.Milliseconds())
+			adjusted.Milliseconds(),
+			float64(drift.Microseconds())/1000)
 
 		for _, event := range group {
 			sendEventAsync(event.Payload, sqlFormatter, runner, ctx, overrideTable, mainWG, expectedSendTime, actualSendTime)
@@ -147,11 +153,6 @@ func sendEventAsync(
 	go func() {
 		defer wg.Done()
 
-		drift := actual.Sub(expected)
-		if drift < 0 {
-			drift = -drift
-		}
-
 		result, err := formatter.Format(rec.Parsed)
 		if err != nil {
 			fmt.Printf("Format error: %v\n", err)
@@ -168,8 +169,8 @@ func sendEventAsync(
 		if err != nil {
 			fmt.Printf("Query failed: %v\n", err)
 		} else {
-			fmt.Printf("Query succeeded | Duration: %s | Job ID: %s | Drift: %.3f ms\n",
-				duration, jobID, float64(drift.Microseconds())/1000)
+			fmt.Printf("Query succeeded | Duration: %s | Job ID: %s\n",
+				duration, jobID)
 		}
 	}()
 }

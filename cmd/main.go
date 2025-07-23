@@ -136,6 +136,7 @@ func main() {
 		}
 
 		log.Printf("▶️ Sending batch %d with %d records...", batchNum, len(parsedBatch))
+		//A metric is sent with the number of records sent in each batch
 		metrics.NumRecordsSent(batchNum, len(parsedBatch))
 
 		// ← SimulateReplay מקבל startTime מוחלט לבאץ' הראשון
@@ -143,6 +144,7 @@ func main() {
 		if err != nil {
 			log.Printf("⚠️ Simulation failed on batch %d: %v", batchNum, err)
 		} else {
+			//A metric is sent when the sending was successful.
 			metrics.Success(batchNum, len(parsedBatch))
 		}
 
@@ -154,6 +156,7 @@ func main() {
 			_ = configuration.SaveLastProcessedID(lastID)
 			log.Printf("💾 Updated checkpoint to: %s", lastID.Hex())
 		}
+		//A metric is sent with the timing of the batch
 		metrics.Timing(start, "loadtool.batch.duration")
 	}
 

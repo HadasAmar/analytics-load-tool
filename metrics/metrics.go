@@ -54,6 +54,8 @@ func NumRecordsSent(batchNum int, count int) {
 	}
 }
 
+
+
 func itoa(i int) string {
 	return fmt.Sprintf("%d", i)
 }

@@ -54,7 +54,7 @@ func main() {
 
 	logger, err := mongoLogger.NewMongoLogger(
 		"mongodb+srv://shilat3015:sh0533143015@cluster0.q7ov2xk.mongodb.net/?tlsInsecure=true",
-		"logsdb", "records", "progress",
+		"logsdb", "records",
 	)
 	if err != nil {
 		log.Fatalf("Failed to connect to MongoDB: %v", err)

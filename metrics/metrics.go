@@ -28,6 +28,16 @@ func Success(batch int, count int) {
 	}
 }
 
+func NumRecordsSent(batch int, count int, user string) {
+	err := Client.Gauge("loadtool.records.sent", float64(count), []string{
+		"batch:" + itoa(batch),
+		"user:" + user,
+	}, 1)
+	if err != nil {
+		log.Printf("Failed to send records sent metric: %v", err)
+	}
+}
+
 func Failure(batch int) {
 	err := Client.Incr("loadtool.query.failure", []string{
 		"batch:" + itoa(batch),

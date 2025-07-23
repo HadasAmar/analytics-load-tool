@@ -163,15 +163,15 @@ func sendEventAsync(
 	go func() {
 		defer wg.Done()
 
-		// Calculate and print time drift (actual vs expected)
-		drift := actual.Sub(expected)
-		if drift < 0 {
-			drift = -drift
-		}
-		fmt.Printf("Dispatching event | Expected: %s | Actual: %s | Drift: %.3f ms\n",
-			expected.Format("15:04:05.000"),
-			actual.Format("15:04:05.000"),
-			float64(drift.Microseconds())/1000)
+		// // Calculate and print time drift (actual vs expected)
+		// drift := actual.Sub(expected)
+		// if drift < 0 {
+		// 	drift = -drift
+		// }
+		// fmt.Printf("Dispatching event | Expected: %s | Actual: %s | Drift: %.3f ms\n",
+		// 	expected.Format("15:04:05.000"),
+		// 	actual.Format("15:04:05.000"),
+		// 	float64(drift.Microseconds())/1000)
 
 		// Format the SQL query
 		result, err := formatter.Format(rec.Parsed)

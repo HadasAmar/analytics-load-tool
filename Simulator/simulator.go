@@ -139,6 +139,7 @@ func calculateDelay(i int, current time.Time, first *time.Time, prev time.Time) 
 }
 
 // sendEventAsync formats and sends a SQL query in a goroutine.
+// It also logs the drift between expected and actual send times.
 func sendEventAsync(
 	rec *Model.ParsedRecord,
 	formatter Formatter.Formatter,
@@ -153,7 +154,7 @@ func sendEventAsync(
 		return
 	}
 
-	// Override table name if needed
+	// Override the table name if specified
 	if override != "" {
 		rec.Parsed.TableName = override
 	}
@@ -161,6 +162,16 @@ func sendEventAsync(
 	wg.Add(1)
 	go func() {
 		defer wg.Done()
+
+		// Calculate and print time drift (actual vs expected)
+		drift := actual.Sub(expected)
+		if drift < 0 {
+			drift = -drift
+		}
+		fmt.Printf("Dispatching event | Expected: %s | Actual: %s | Drift: %.3f ms\n",
+			expected.Format("15:04:05.000"),
+			actual.Format("15:04:05.000"),
+			float64(drift.Microseconds())/1000)
 
 		// Format the SQL query
 		result, err := formatter.Format(rec.Parsed)
@@ -175,7 +186,7 @@ func sendEventAsync(
 			return
 		}
 
-		// Run the SQL query and log results
+		// Run the SQL query and print results
 		duration, jobID, err := runner.RunRawQuery(ctx, raw)
 		if err != nil {
 			fmt.Printf("Query failed: %v\n", err)

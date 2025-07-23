@@ -12,13 +12,14 @@ import (
 	"go.mongodb.org/mongo-driver/mongo/options"
 )
 
+// MongoLogger handles MongoDB operations for records.
 type MongoLogger struct {
-	client       *mongo.Client
-	recordColl   *mongo.Collection
-	progressColl *mongo.Collection
+	client     *mongo.Client
+	recordColl *mongo.Collection
 }
 
-func NewMongoLogger(uri, dbName, recordCollName, progressCollName string) (*MongoLogger, error) {
+// Creates a new MongoLogger with a MongoDB connection and collection.
+func NewMongoLogger(uri, dbName, recordCollName string) (*MongoLogger, error) {
 	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
 	defer cancel()
 
@@ -29,12 +30,12 @@ func NewMongoLogger(uri, dbName, recordCollName, progressCollName string) (*Mong
 	}
 
 	return &MongoLogger{
-		client:       client,
-		recordColl:   client.Database(dbName).Collection(recordCollName),
-		progressColl: client.Database(dbName).Collection(progressCollName),
+		client:     client,
+		recordColl: client.Database(dbName).Collection(recordCollName),
 	}, nil
 }
 
+// Saves a parsed record to the record collection.
 func (m *MongoLogger) SaveLog(record *Model.ParsedRecord) error {
 	doc := bson.M{
 		"timestamp": record.LogTime,
@@ -42,34 +43,11 @@ func (m *MongoLogger) SaveLog(record *Model.ParsedRecord) error {
 		"raw":       record.Query,
 	}
 	_, err := m.recordColl.InsertOne(context.TODO(), doc)
-	fmt.Printf("🎉Saved record with timestamp: %s\n", record.LogTime.Format(time.RFC3339))
+	fmt.Printf("Saved record with timestamp: %s\n", record.LogTime.Format(time.RFC3339))
 	return err
 }
 
-func (m *MongoLogger) SaveLastProcessedTimestamp(t time.Time) error {
-	_, err := m.progressColl.UpdateOne(
-		context.TODO(),
-		bson.M{"_id": "last_processed"},
-		bson.M{"$set": bson.M{"timestamp": t}},
-		options.Update().SetUpsert(true),
-	)
-	return err
-}
-
-func (m *MongoLogger) GetLastProcessedTimestamp() (time.Time, error) {
-	var result struct {
-		Timestamp time.Time `bson:"timestamp"`
-	}
-	err := m.progressColl.FindOne(context.TODO(), bson.M{"_id": "last_processed"}).Decode(&result)
-	if err != nil {
-		if err == mongo.ErrNoDocuments {
-			return time.Time{}, nil
-		}
-		return time.Time{}, err
-	}
-	return result.Timestamp, nil
-}
-
+// Reads records after a given ObjectID, with a limit.
 func (m *MongoLogger) ReadLogsAfterWithLimit(lastID primitive.ObjectID, limit int) ([]*Model.ParsedRecord, primitive.ObjectID, error) {
 	filter := bson.M{
 		"_id": bson.M{"$gt": lastID},
@@ -111,6 +89,7 @@ func (m *MongoLogger) ReadLogsAfterWithLimit(lastID primitive.ObjectID, limit in
 	return results, latestID, nil
 }
 
+// Deletes all records from the record collection.
 func (m *MongoLogger) DeleteAllRecords() error {
 	_, err := m.recordColl.DeleteMany(context.TODO(), bson.M{})
 	return err

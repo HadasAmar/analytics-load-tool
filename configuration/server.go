@@ -6,13 +6,13 @@ import (
 	"net/http"
 )
 
-// struct לקליטת בקשה מה-React
+// represents the structure of the request to update a configuration value
 type ConfigUpdateRequest struct {
 	Key   string `json:"key"`
 	Value string `json:"value"`
 }
 
-// פונקציה שמריצה את שרת ה-API ברקע
+// starts a simple HTTP server to handle configuration updates via API.
 func StartConfigApiServer() {
 	go func() {
 		http.HandleFunc("/api/config/update", func(w http.ResponseWriter, r *http.Request) {
@@ -29,12 +29,12 @@ func StartConfigApiServer() {
 			}
 
 			w.WriteHeader(http.StatusOK)
-			w.Write([]byte("✅ Updated successfully"))
+			w.Write([]byte("Updated successfully"))
 		})
 
-		log.Println("🌐 Config API server running at http://localhost:8080")
+		log.Println("Config API server running at http://localhost:8080")
 		if err := http.ListenAndServe(":8080", nil); err != nil {
-			log.Fatalf("❌ HTTP server failed: %v", err)
+			log.Fatalf("HTTP server failed: %v", err)
 		}
 	}()
 }

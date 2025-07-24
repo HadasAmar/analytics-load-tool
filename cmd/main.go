@@ -127,7 +127,7 @@ func main() {
             log.Fatalf("Failed to parse batch: %v", err)
         }
         log.Printf("Sending batch %d with %d records...", batchNum, len(parsedBatch))
-		metrics.NumRecordsSent(batchNum, len(parsedBatch), "Hadas Amar")
+        metrics.NumRecordsSent(batchNum, len(parsedBatch))
         err = Simulator.SimulateReplay(parsedBatch, sqlFormatter, runner, ctx, overrideTable, &wg, lastTimestamp)
         if err != nil {
             log.Printf("Simulation failed on batch %d: %v", batchNum, err)

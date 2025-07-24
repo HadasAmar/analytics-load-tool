@@ -2,9 +2,10 @@ package metrics
 
 import (
 	"fmt"
-	"github.com/DataDog/datadog-go/statsd"
 	"log"
 	"time"
+
+	"github.com/DataDog/datadog-go/statsd"
 )
 
 var Client *statsd.Client
@@ -54,7 +55,19 @@ func NumRecordsSent(batchNum int, count int) {
 	}
 }
 
+func SingleLogSuccess() {
+	err := Client.Incr("loadtool.log.success", nil, 1)
+	if err != nil {
+		log.Printf("Failed to send single log success metric: %v", err)
+	}
+}
 
+func Drift(ms float64) {
+	err := Client.Gauge("loadtool.log.drift", ms, nil, 1)
+	if err != nil {
+		log.Printf("Failed to send drift metric: %v", err)
+	}
+}
 
 func itoa(i int) string {
 	return fmt.Sprintf("%d", i)

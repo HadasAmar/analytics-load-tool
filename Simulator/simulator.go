@@ -11,6 +11,7 @@ import (
 	"github.com/HadasAmar/analytics-load-tool/Runner"
 	"github.com/HadasAmar/analytics-load-tool/configuration"
 	Formatter "github.com/HadasAmar/analytics-load-tool/formatter"
+	"github.com/HadasAmar/analytics-load-tool/metrics"
 )
 
 // ReplayEvent holds event details: timestamp, payload, and delay between events.
@@ -94,6 +95,9 @@ func SimulateReplay(
 		if drift < 0 {
 			drift = -drift
 		}
+
+		metrics.Drift(float64(drift.Microseconds()) / 1000.0)
+
 		fmt.Printf("[%s] Sending %d events | ORIGINAL: %v ms | ADJUSTED: %v ms | Drift: %.3f ms\n",
 			actualSendTime.Format("15:04:05.000"),
 			len(group),
@@ -161,17 +165,6 @@ func sendEventAsync(
 	wg.Add(1)
 	go func() {
 		defer wg.Done()
-
-		// Debug print: time drift
-		drift := actual.Sub(expected)
-		if drift < 0 {
-			drift = -drift
-		}
-		fmt.Printf("Dispatching event | Expected: %s | Actual: %s | Drift: %.3f ms\n",
-			expected.Format("15:04:05.000"),
-			actual.Format("15:04:05.000"),
-			float64(drift.Microseconds())/1000)
-
 		// Format the SQL query
 		result, err := formatter.Format(rec.Parsed)
 		if err != nil {
@@ -191,6 +184,7 @@ func sendEventAsync(
 			fmt.Printf("Query failed: %v\n", err)
 		} else {
 			fmt.Printf("Query succeeded | Duration: %s | Job ID: %s\n", duration, jobID)
+			metrics.SingleLogSuccess()
 		}
 	}()
 }

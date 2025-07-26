@@ -114,7 +114,7 @@ func main() {
     var wg sync.WaitGroup
     var lastTimestamp *time.Time
     for batchNum := 1; ; batchNum++ {
-        start := time.Now()
+        // start := time.Now()
         rawBatch, latestID, err := logger.ReadLogsAfterWithLimit(lastID, batchSize)
         if err != nil {
             log.Fatalf("Failed to read batch: %v", err)
@@ -141,7 +141,7 @@ func main() {
             _ = configuration.SaveLastProcessedID(lastID)
             log.Printf("Updated checkpoint to: %s", lastID.Hex())
         }
-        metrics.Timing(start, "loadtool.batch.duration")
+        // metrics.Timing(start, "loadtool.batch.duration")
     }
     wg.Wait()
 }

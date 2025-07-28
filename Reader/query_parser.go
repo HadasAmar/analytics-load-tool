@@ -92,7 +92,7 @@ func ParseRawRecord(timestamp, ip, raw string) *Model.ParsedRecord {
 		}
 	}
 
-	// ✅ Intervals – תומך גם במבנה עטוף
+	// Intervals
 	if intervalsRaw, ok := query["intervals"]; ok {
 		switch v := intervalsRaw.(type) {
 		case []interface{}:

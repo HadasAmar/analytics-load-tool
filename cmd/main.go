@@ -2,9 +2,6 @@ package main
 import (
     "context"
     "log"
-    "net"
-    "net/http"
-    "os"
     "sync"
     "time"
     "github.com/HadasAmar/analytics-load-tool/Reader"
@@ -25,27 +22,7 @@ func main() {
     if err := configuration.InitGlobalConsul(); err != nil {
         log.Fatalf("Failed to initialize Consul: %v", err)
     }
-    // Register HTTP handler
-    http.HandleFunc("/api/input-language", configuration.InputLanguageHandler)
-    // Determine port
-    port := os.Getenv("PORT")
-    if port == "" {
-        port = "8080"
-    }
-    // Bind listener before logging
-    addr := ":" + port
-    listener, err := net.Listen("tcp", addr)
-    if err != nil {
-        log.Fatalf("HTTP server failed to bind on %s: %v", addr, err)
-    }
-    // Confirm listening
-    log.Printf("HTTP server listening on %s", listener.Addr())
-    // Serve in goroutine
-    go func() {
-        if err := http.Serve(listener, nil); err != nil {
-            log.Fatalf("HTTP server stopped: %v", err)
-        }
-    }()
+    
     // Fetch Consul config
     logFilePath, err := configuration.GetLogFilePath(configuration.GlobalConsulClient)
     if err != nil {

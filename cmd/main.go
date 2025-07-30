@@ -37,7 +37,6 @@ func main() {
     var lastTimestamp *time.Time
 
     for batchNum := 1; ; batchNum++ {
-        start := time.Now()
 
         rawBatch, latestID, err := appCtx.Logger.ReadLogsAfterWithLimit(appCtx.LastID, appCtx.BatchSize)
         if err != nil {
@@ -70,7 +69,7 @@ func main() {
             log.Printf("Updated checkpoint to: %s", appCtx.LastID.Hex())
         }
 
-        metrics.Timing(start, "loadtool.batch.duration")
+       
     }
 
     wg.Wait()

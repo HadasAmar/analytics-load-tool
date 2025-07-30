@@ -12,6 +12,7 @@ import (
 	"github.com/HadasAmar/analytics-load-tool/configuration"
 	Formatter "github.com/HadasAmar/analytics-load-tool/formatter"
 	"github.com/HadasAmar/analytics-load-tool/metrics"
+	// "github.com/HadasAmar/analytics-load-tool/metrics"
 )
 
 // ReplayEvent holds event details: timestamp, payload, and delay between events.
@@ -66,6 +67,8 @@ func SimulateReplay(
 	overrideTable string,
 	mainWG *sync.WaitGroup,
 	startTime *time.Time,
+	simStart time.Time,
+	firstDriftOnce *sync.Once,
 ) error {
 	events, err := CalculateReplayEvents(records)
 	if err != nil || len(events) == 0 {
@@ -96,7 +99,7 @@ func SimulateReplay(
 			drift = -drift
 		}
 
-		metrics.Drift(float64(drift.Microseconds()) / 1000.0)
+		// metrics.Drift(float64(drift.Microseconds()) / 1000.0)
 
 		fmt.Printf("[%s] Sending %d events | ORIGINAL: %v ms | ADJUSTED: %v ms | Drift: %.3f ms\n",
 			actualSendTime.Format("15:04:05.000"),
@@ -107,7 +110,7 @@ func SimulateReplay(
 
 		// Send each event concurrently
 		for _, event := range group {
-			sendEventAsync(event.Payload, sqlFormatter, runner, ctx, overrideTable, mainWG, expectedSendTime, actualSendTime)
+			sendEventAsync(event.Payload, sqlFormatter, runner, ctx, overrideTable, mainWG, expectedSendTime, actualSendTime, simStart, firstDriftOnce)
 		}
 	}
 	return nil
@@ -152,7 +155,11 @@ func sendEventAsync(
 	wg *sync.WaitGroup,
 	expected time.Time,
 	actual time.Time,
+	simStart time.Time,
+	firstDriftOnce *sync.Once,
 ) {
+
+	// start := time.Now()
 	if rec == nil || rec.Parsed == nil {
 		return
 	}
@@ -161,10 +168,39 @@ func sendEventAsync(
 	if override != "" {
 		rec.Parsed.TableName = override
 	}
-
 	wg.Add(1)
 	go func() {
 		defer wg.Done()
+		var driftTime time.Duration
+
+		firstDriftOnce.Do(func() {
+			driftTime = rec.LogTime.Sub(simStart)
+
+		})
+
+		atProdaction := rec.LogTime.Add(driftTime)
+		metrics.ReportCustomTime("loadtool.simulated.atProduction", atProdaction)
+
+		//A metric for tracking event timing in real time
+		// metrics.Gauge("loadtool.simulated.realtime", float64(expected.UnixMilli()))
+
+		// metrics.ReportExpectedTime("loadtool.simulated.expected", expected)
+		// metrics.ReportActualTime("loadtool.simulated.actual", actual)
+		// metrics.ReportDuration("loadtool.simulated.drift", actual.Sub(expected))
+
+		// Debug print: time drift
+		drift := actual.Sub(expected)
+		if drift < 0 {
+			drift = -drift
+		}
+
+		fmt.Printf("Dispatching event | Expected: %s | Actual: %s | Drift: %.3f ms\n",
+			expected.Format("15:04:05.000"),
+			actual.Format("15:04:05.000"),
+			float64(drift.Microseconds())/1000)
+
+		metrics.ReportDuration("loadtool.simulated.drift", drift)
+
 		// Format the SQL query
 		result, err := formatter.Format(rec.Parsed)
 		if err != nil {
@@ -180,11 +216,14 @@ func sendEventAsync(
 
 		// Run the query
 		duration, jobID, err := runner.RunRawQuery(ctx, raw)
+
 		if err != nil {
 			fmt.Printf("Query failed: %v\n", err)
 		} else {
 			fmt.Printf("Query succeeded | Duration: %s | Job ID: %s\n", duration, jobID)
 			metrics.SingleLogSuccess()
+			//send metric for the time it took to send the event
+			metrics.Client.Incr("loadtool.simulation.event_delivered", nil, 1)
 		}
 	}()
 }

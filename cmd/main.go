@@ -7,109 +7,71 @@ import (
 	"time"
 
 	"github.com/HadasAmar/analytics-load-tool/Reader"
-	"github.com/HadasAmar/analytics-load-tool/Runner"
+	// "github.com/HadasAmar/analytics-load-tool/Runner"
 	"github.com/HadasAmar/analytics-load-tool/Simulator"
 	"github.com/HadasAmar/analytics-load-tool/configuration"
-	Formatter "github.com/HadasAmar/analytics-load-tool/formatter"
+	// Formatter "github.com/HadasAmar/analytics-load-tool/formatter"
 	"github.com/HadasAmar/analytics-load-tool/metrics"
-	mongoLogger "github.com/HadasAmar/analytics-load-tool/mongo"
+	// mongoLogger "github.com/HadasAmar/analytics-load-tool/mongo"
 )
 
 func main() {
-	ctx := context.Background()
+    ctx := context.Background()
+    metrics.Init()
+    defer metrics.Client.Close()
 
-	// Init metrics client
-	metrics.Init()
-	defer metrics.Client.Close()
+    if err := configuration.InitGlobalConsul(); err != nil {
+        log.Fatalf("Failed to initialize Consul: %v", err)
+    }
 
-	// Init Consul
-	if err := configuration.InitGlobalConsul(); err != nil {
-		log.Fatalf("Failed to initialize Consul: %v", err)
-	}
+    // קריאה אחת שמחזירה הכל מוכן
+    appCtx, err := configuration.InitAppContext(ctx)
+    if err != nil {
+        log.Fatalf("Failed to initialize application context: %v", err)
+    }
 
-	// Fetch config values from Consul
-	overrideTable, err := configuration.GetOverrideTable(configuration.GlobalConsulClient)
-	if err != nil {
-		log.Fatalf("Failed to get override table: %v", err)
-	}
+    log.Printf("Using batch size: %d", appCtx.BatchSize)
+    log.Printf("Resuming from ID: %s", appCtx.LastID.Hex())
 
-	mongoCfg, err := configuration.GetMongoConfig(configuration.GlobalConsulClient)
-	if err != nil {
-		log.Fatalf("Failed to get Mongo config: %v", err)
-	}
+    var wg sync.WaitGroup
+    var lastTimestamp *time.Time
 
-	logger, err := mongoLogger.NewMongoLogger(
-		mongoCfg.URI,
-		mongoCfg.Database,
-		mongoCfg.Collection,
-	)
-	if err != nil {
-		log.Fatalf("Failed to connect to MongoDB: %v", err)
-	}
+    for batchNum := 1; ; batchNum++ {
+        start := time.Now()
 
-	batchSize, err := configuration.GetBatchSize(configuration.GlobalConsulClient)
-	if err != nil {
-		log.Fatalf("Failed to get batch size: %v", err)
-	}
+        rawBatch, latestID, err := appCtx.Logger.ReadLogsAfterWithLimit(appCtx.LastID, appCtx.BatchSize)
+        if err != nil {
+            log.Fatalf("Failed to read batch: %v", err)
+        }
+        if len(rawBatch) == 0 {
+            break
+        }
 
-	lastID, err := configuration.GetLastProcessedID()
-	if err != nil {
-		log.Fatalf("Failed to get last processed ID: %v", err)
-	}
+        parsedBatch, err := Reader.ReadParsedRecordsFromMongo(rawBatch)
+        if err != nil {
+            log.Fatalf("Failed to parse batch: %v", err)
+        }
 
-	log.Printf("Using batch size: %d", batchSize)
-	log.Printf("Resuming from ID: %s", lastID.Hex())
+        log.Printf("Sending batch %d with %d records...", batchNum, len(parsedBatch))
+        metrics.NumRecordsSent(batchNum, len(parsedBatch))
 
-	// BigQuery runner
-	runner, err := Runner.NewBigQueryRunner(ctx, "platform-hackaton-2025", "./credentials.json")
-	if err != nil {
-		log.Fatalf("Could not create BigQuery client: %v", err)
-	}
-	log.Println("BigQuery client created successfully")
+        err = Simulator.SimulateReplay(parsedBatch, appCtx.SQLFormatter, appCtx.Runner, ctx, appCtx.OverrideTable, &wg, lastTimestamp)
+        if err != nil {
+            log.Printf("Simulation failed on batch %d: %v", batchNum, err)
+        } else {
+            metrics.Success(batchNum, len(parsedBatch))
+        }
 
-	// SQL formatter
-	var sqlFormatter Formatter.Formatter = &Formatter.SQLFormatter{}
+        last := parsedBatch[len(parsedBatch)-1]
+        if last != nil {
+            appCtx.LastID = latestID
+            lastTimestamp = &last.LogTime
+            _ = configuration.SaveLastProcessedID(appCtx.LastID)
+            log.Printf("Updated checkpoint to: %s", appCtx.LastID.Hex())
+        }
 
-	// Process batches from MongoDB
-	var wg sync.WaitGroup
-	var lastTimestamp *time.Time
+        metrics.Timing(start, "loadtool.batch.duration")
+    }
 
-	for batchNum := 1; ; batchNum++ {
-		start := time.Now()
-
-		rawBatch, latestID, err := logger.ReadLogsAfterWithLimit(lastID, batchSize)
-		if err != nil {
-			log.Fatalf("Failed to read batch: %v", err)
-		}
-		if len(rawBatch) == 0 {
-			break
-		}
-
-		parsedBatch, err := Reader.ReadParsedRecordsFromMongo(rawBatch)
-		if err != nil {
-			log.Fatalf("Failed to parse batch: %v", err)
-		}
-
-		log.Printf("Sending batch %d with %d records...", batchNum, len(parsedBatch))
-		metrics.NumRecordsSent(batchNum, len(parsedBatch))
-
-		err = Simulator.SimulateReplay(parsedBatch, sqlFormatter, runner, ctx, overrideTable, &wg, lastTimestamp)
-		if err != nil {
-			log.Printf("Simulation failed on batch %d: %v", batchNum, err)
-		} else {
-			metrics.Success(batchNum, len(parsedBatch))
-		}
-
-		last := parsedBatch[len(parsedBatch)-1]
-		if last != nil {
-			lastID = latestID
-			lastTimestamp = &last.LogTime
-			_ = configuration.SaveLastProcessedID(lastID)
-			log.Printf("Updated checkpoint to: %s", lastID.Hex())
-		}
-
-		metrics.Timing(start, "loadtool.batch.duration")
-	}
-
-	wg.Wait()
+    wg.Wait()
 }

@@ -12,7 +12,7 @@ import (
 	"github.com/HadasAmar/analytics-load-tool/configuration"
 	Formatter "github.com/HadasAmar/analytics-load-tool/formatter"
 	"github.com/HadasAmar/analytics-load-tool/metrics"
-	"github.com/HadasAmar/analytics-load-tool/metrics"
+	// "github.com/HadasAmar/analytics-load-tool/metrics"
 )
 
 // ReplayEvent holds event details: timestamp, payload, and delay between events.
@@ -99,7 +99,7 @@ func SimulateReplay(
 			drift = -drift
 		}
 
-		metrics.Drift(float64(drift.Microseconds()) / 1000.0)
+		// metrics.Drift(float64(drift.Microseconds()) / 1000.0)
 
 		fmt.Printf("[%s] Sending %d events | ORIGINAL: %v ms | ADJUSTED: %v ms | Drift: %.3f ms\n",
 			actualSendTime.Format("15:04:05.000"),

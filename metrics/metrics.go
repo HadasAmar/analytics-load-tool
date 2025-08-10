@@ -6,7 +6,7 @@ import (
 	"time"
 
 	"github.com/DataDog/datadog-go/statsd"
-)
+)	
 
 var Client *statsd.Client
 

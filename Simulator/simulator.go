@@ -215,6 +215,7 @@ func sendEventAsync(
 
 		if err != nil {
 			fmt.Printf("Query failed: %v\n", err)
+			metrics.Client.Incr("loadtool.simulation.event_failed", nil, 1)
 		} else {
 			fmt.Printf("Query succeeded | Duration: %s | Job ID: %s\n", duration, jobID)
 			metrics.SingleLogSuccess()

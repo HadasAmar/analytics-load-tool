@@ -47,6 +47,8 @@ func main() {
 			log.Fatalf("HTTP server stopped: %v", err)
 		}
 	}()
+	metrics.Client.Incr("loadtool.simulation.event_failed", nil, 1)
+
 	// Fetch Consul config
 	logFilePath, err := configuration.GetLogFilePath(configuration.GlobalConsulClient)
 	if err != nil {
@@ -119,6 +121,8 @@ func main() {
 	var firstDriftOnce sync.Once
 
 	for batchNum := 1; ; batchNum++ {
+		metrics.Client.Incr("loadtool.simulation.event_failed", nil, 1)
+
 		rawBatch, latestID, err := logger.ReadLogsAfterWithLimit(lastID, batchSize)
 		if err != nil {
 			log.Fatalf("Failed to read batch: %v", err)
@@ -132,8 +136,8 @@ func main() {
 		}
 		log.Printf("Sending batch %d with %d records...", batchNum, len(parsedBatch))
 		metrics.NumRecordsSent(batchNum, len(parsedBatch))
-        //Datadog
-        err = Simulator.SimulateReplay(parsedBatch, sqlFormatter, runner, ctx, overrideTable, &wg, lastTimestamp, startTime, &firstDriftOnce)
+		//Datadog
+		err = Simulator.SimulateReplay(parsedBatch, sqlFormatter, runner, ctx, overrideTable, &wg, lastTimestamp, startTime, &firstDriftOnce)
 		if err != nil {
 			log.Printf("Simulation failed on batch %d: %v", batchNum, err)
 		} else {
